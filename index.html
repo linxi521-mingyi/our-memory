@@ -381,8 +381,8 @@ section { position: relative; z-index: 1; }
   transition: all 0.2s;
 }
 .modal-close:hover, .modal-open-tab:hover { background: rgba(255, 107, 157, 0.1); color: var(--rose-deep); }
-.modal-body { flex: 1; overflow: hidden; }
-.modal-body iframe { width: 100%; height: 100%; border: none; }
+.modal-body { flex: 1; overflow: hidden; min-height: 0; -webkit-overflow-scrolling: touch; }
+.modal-body iframe { width: 100%; height: 100%; border: none; display: block; }
 /* 图片灯箱 */
 .lightbox {
   position: fixed; inset: 0; background: rgba(0,0,0,0.92);
@@ -642,7 +642,7 @@ section { position: relative; z-index: 1; }
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
     </div>
-    <div class="modal-body"><iframe id="modalFrame" src=""></iframe></div>
+    <div class="modal-body"><iframe id="modalFrame" src="about:blank" title="内容预览" allow="fullscreen"></iframe></div>
   </div>
 </div>
 
@@ -846,15 +846,18 @@ let currentModalPath = '';
 let currentModalBlob = null;
 async function openModal(path, title) {
   currentModalPath = path;
+  title = title || (LoveCrypto.TITLE_MAP && LoveCrypto.TITLE_MAP[path]) || '内容';
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalOverlay').classList.add('active');
   document.body.style.overflow = 'hidden';
   const frame = document.getElementById('modalFrame');
-  frame.src = '';
+  frame.removeAttribute('src');
+  frame.src = 'about:blank';
   LoveLoader.show(title || '解密加载');
   try {
     const opened = await LoveCrypto.openDecryptedHtml(path, {
-      target: 'none',
+      target: 'modal',
+      title: title,
       onProgress: onLoadProgress,
     });
     if (!opened || !opened.url) return;
@@ -872,13 +875,21 @@ async function openModal(path, title) {
   }
 }
 async function openTab(path) {
+  var title = (LoveCrypto.TITLE_MAP && LoveCrypto.TITLE_MAP[path]) || '聊天记录';
+  if (LoveCrypto.isMobileDevice && LoveCrypto.isMobileDevice()) {
+    return openModal(path, title);
+  }
   LoveLoader.show('解密聊天记录');
   try {
-    await LoveCrypto.openDecryptedHtml(path, {
+    const opened = await LoveCrypto.openDecryptedHtml(path, {
       target: 'tab',
+      title: title,
       onProgress: onLoadProgress,
     });
     LoveLoader.hide();
+    if (opened && opened.popupBlocked) {
+      await openModal(path, title);
+    }
   } catch (err) {
     LoveLoader.fail((err && err.message) ? err.message : '解密失败');
     if (err && (err.code === 'DECRYPT_FAILED' || (err.message && err.message.indexOf('重新登录') >= 0))) {
@@ -888,7 +899,13 @@ async function openTab(path) {
   }
 }
 function openModalInTab() {
-  if (currentModalPath) openTab(currentModalPath);
+  if (!currentModalPath) return;
+  LoveCrypto.openDecryptedHtml(currentModalPath, { target: 'tab', title: document.getElementById('modalTitle').textContent })
+    .then(function (opened) {
+      if (opened && opened.popupBlocked) {
+        alert('浏览器拦截了新标签页，请继续在当前弹窗中查看');
+      }
+    });
 }
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modalOverlay')) return;

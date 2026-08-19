@@ -305,6 +305,26 @@
     'AI智能体/AI智能体.html': 'enc/ai-agent.enc',
   };
 
+  const TITLE_MAP = {
+    '微信聊天记录导出/高铭怡聊天记录.html': '微信聊天记录',
+    '抖音聊天记录导出/抖音聊天记录.html': '抖音聊天记录',
+    '微信聊天记录导出/微信聊天频率分析报告.html': '微信频率分析',
+    '抖音聊天记录导出/聊天频率分析报告.html': '抖音频率分析',
+    '性格分析报告/性格分析报告.html': '性格分析报告',
+    'AI智能体/AI智能体.html': 'AI智能体',
+  };
+
+  function isMobileDevice() {
+    if (typeof navigator === 'undefined') return false;
+    var ua = navigator.userAgent || '';
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return true;
+    return (navigator.maxTouchPoints > 1 && window.innerWidth <= 900);
+  }
+
+  function shouldUseModal(target) {
+    return target === 'modal' || (target === 'tab' && isMobileDevice());
+  }
+
   const blobUrls = new Set();
 
   function revokeBlob(url) {
@@ -316,23 +336,23 @@
 
   async function openDecryptedHtml(legacyPath, opts) {
     opts = opts || {};
-    const target = opts.target || 'tab';
-    const title = opts.title || '';
-    const onProgress = opts.onProgress;
-    const encPath = ENC_MAP[legacyPath];
+    var target = opts.target || 'tab';
+    var title = opts.title || TITLE_MAP[legacyPath] || '';
+    var onProgress = opts.onProgress;
+    var encPath = ENC_MAP[legacyPath];
     if (!encPath) throw new Error('未知资源: ' + legacyPath);
     await ensureSessionValid();
-    const key = await getSessionKey();
+    var key = await getSessionKey();
     if (!key) {
       location.replace('login.html');
       return null;
     }
 
-    let url = blobCache.get(legacyPath);
+    var url = blobCache.get(legacyPath);
     if (!url) {
-      const bytes = await fetchAndDecrypt(key, encPath, onProgress);
+      var bytes = await fetchAndDecrypt(key, encPath, onProgress);
       report(onProgress, 98, '生成预览', '即将打开');
-      const blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
+      var blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
       url = URL.createObjectURL(blob);
       blobUrls.add(url);
       blobCache.set(legacyPath, url);
@@ -340,11 +360,19 @@
       report(onProgress, 100, '读取缓存', '秒开');
     }
 
-    if (target === 'tab') {
-      window.open(url, '_blank');
+    var useModal = shouldUseModal(target);
+    if (!useModal && target === 'tab') {
+      var w = window.open(url, '_blank');
+      if (!w) {
+        report(onProgress, 100, '完成', '弹窗被拦截，改用内嵌打开');
+        return { url: url, title: title, popupBlocked: true, revoke: function () {} };
+      }
+      report(onProgress, 100, '完成', '已打开');
+      return { url: url, title: title, openedInTab: true, revoke: function () {} };
     }
-    report(onProgress, 100, '完成', '已打开');
-    return { url, title, revoke: function () {} };
+
+    report(onProgress, 100, '完成', '已就绪');
+    return { url: url, title: title, forModal: useModal || target === 'none', revoke: function () {} };
   }
 
   global.LoveCrypto = {
@@ -366,6 +394,8 @@
     fetchAndDecrypt,
     openDecryptedHtml,
     ENC_MAP,
+    TITLE_MAP,
+    isMobileDevice,
     revokeBlob,
   };
 })(window);
