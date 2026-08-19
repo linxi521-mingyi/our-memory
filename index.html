@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FFF5F7">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>梦召 & 铭怡 · 我们的时间记忆</title>
 <style>
 :root {
@@ -459,6 +461,7 @@ section { position: relative; z-index: 1; }
   .timeline-gallery { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
 }
 </style>
+<link rel="stylesheet" href="js/mobile.css">
 </head>
 <body>
 <script>
@@ -900,6 +903,12 @@ function closeModal(e) {
 function toggleMobileNav() {
   document.getElementById('navLinks').classList.toggle('mobile-open');
 }
+function closeMobileNav() {
+  document.getElementById('navLinks').classList.remove('mobile-open');
+}
+document.querySelectorAll('.dropdown-link, .nav-link[onclick]').forEach(function(el) {
+  el.addEventListener('click', closeMobileNav);
+});
 
 // ============ 平滑滚动 ============
 document.querySelectorAll('a[href^="#"]').forEach(a => {
