@@ -9,6 +9,7 @@
 
   const metaCache = { value: null, promise: null };
   const decryptCache = new Map();
+  const mobilePackCache = new Map();
   const blobCache = new Map();
   const inflight = new Map();
 
@@ -167,6 +168,47 @@
     );
   }
 
+  function isLov1(bytes) {
+    return bytes.length >= 16 && bytes[0] === 0x4c && bytes[1] === 0x4f && bytes[2] === 0x56 && bytes[3] === 0x31;
+  }
+
+  async function fetchEncFile(encPath, onProgress, p0, p1) {
+    report(onProgress, p0, '连接服务器', '正在请求资源');
+    var res = await fetch(encUrl(encPath), { cache: 'no-store' });
+    if (!res.ok) throw new Error('无法加载 ' + encPath);
+    var dlEnd = p0 + (p1 - p0) * 0.82;
+    return readResponseBytes(res, onProgress, p0, dlEnd);
+  }
+
+  async function decryptRawBytes(key, bytes, onProgress, p0, p1) {
+    if (isLov1(bytes)) {
+      report(onProgress, p0 + (p1 - p0) * 0.15, 'AES 解密', '二进制解锁…');
+      await yieldToUI();
+      var iv = bytes.subarray(4, 16);
+      var ct = bytes.subarray(16);
+      report(onProgress, p0 + (p1 - p0) * 0.45, 'AES 解密', '正在解锁 (' + formatBytes(ct.length) + ')…');
+      if (global.LoveLoader && LoveLoader.startPulse) LoveLoader.startPulse(p0 + (p1 - p0) * 0.85, 'AES 解密', '请稍候，解密中…');
+      await yieldToUI();
+      try {
+        var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct);
+        if (global.LoveLoader && LoveLoader.stopPulse) LoveLoader.stopPulse();
+        report(onProgress, p1, '解密完成', '内容已解锁');
+        return new Uint8Array(plain);
+      } catch (e) {
+        if (global.LoveLoader && LoveLoader.stopPulse) LoveLoader.stopPulse();
+        var err = new Error('解密失败，请退出后重新登录');
+        err.code = 'DECRYPT_FAILED';
+        err.cause = e;
+        throw err;
+      }
+    }
+    report(onProgress, p0 + (p1 - p0) * 0.2, '解析数据', '兼容旧格式…');
+    await yieldToUI();
+    var text = new TextDecoder().decode(bytes);
+    var payload = JSON.parse(text);
+    return decryptPayload(key, payload, onProgress, p0 + (p1 - p0) * 0.25, p1);
+  }
+
   async function decryptPayload(key, payload, onProgress, p0, p1) {
     report(onProgress, p0, 'AES 解密', '准备密钥…');
     await yieldToUI();
@@ -221,8 +263,8 @@
       return inflight.get(encPath);
     }
     const task = (async function () {
-      const payload = await fetchJsonWithProgress(encPath, onProgress, 10, 72, true);
-      const bytes = await decryptPayload(key, payload, onProgress, 72, 96);
+      const raw = await fetchEncFile(encPath, onProgress, 10, 72);
+      const bytes = await decryptRawBytes(key, raw, onProgress, 72, 96);
       decryptCache.set(encPath, bytes);
       return bytes;
     })();
@@ -262,6 +304,7 @@
     sessionStorage.removeItem('love_viewer_title');
     localStorage.removeItem(LOGIN_FLAG);
     decryptCache.clear();
+    mobilePackCache.clear();
     blobCache.forEach(function (url) {
       try { URL.revokeObjectURL(url); } catch (e) {}
     });
@@ -349,6 +392,11 @@
     'AI智能体/AI智能体.html': 'enc/ai-agent.enc',
   };
 
+  const MOBILE_ENC_MAP = {
+    '微信聊天记录导出/高铭怡聊天记录.html': 'enc/wechat-mobile.enc',
+    '抖音聊天记录导出/抖音聊天记录.html': 'enc/douyin-mobile.enc',
+  };
+
   const TITLE_MAP = {
     '微信聊天记录导出/高铭怡聊天记录.html': '微信聊天记录',
     '抖音聊天记录导出/抖音聊天记录.html': '抖音聊天记录',
@@ -376,6 +424,21 @@
 
   function shouldUseViewer() {
     return isWeChatBrowser();
+  }
+
+  function shouldUseViewerFor(legacyPath) {
+    if (isWeChatBrowser()) return true;
+    if (isMobileDevice() && CHAT_PATHS.indexOf(legacyPath) >= 0) return true;
+    return false;
+  }
+
+  function useMobilePack(legacyPath) {
+    return (isMobileDevice() || isWeChatBrowser()) && !!MOBILE_ENC_MAP[legacyPath];
+  }
+
+  function getEncPath(legacyPath) {
+    if (useMobilePack(legacyPath)) return MOBILE_ENC_MAP[legacyPath];
+    return ENC_MAP[legacyPath];
   }
 
   var VIEWER_SHORT = {
@@ -447,7 +510,7 @@
   }
 
   async function getDecryptedBytes(legacyPath, onProgress) {
-    var encPath = ENC_MAP[legacyPath];
+    var encPath = getEncPath(legacyPath);
     if (!encPath) throw new Error('未知资源');
     await ensureSessionValid();
     var key = await getSessionKey();
@@ -458,6 +521,26 @@
     return fetchAndDecrypt(key, encPath, onProgress);
   }
 
+  async function getDecryptedChatPack(legacyPath, onProgress) {
+    var encPath = getEncPath(legacyPath);
+    if (mobilePackCache.has(encPath)) {
+      report(onProgress, 95, '读取缓存', '聊天包已就绪');
+      return mobilePackCache.get(encPath);
+    }
+    await ensureSessionValid();
+    var key = await getSessionKey();
+    if (!key) {
+      location.replace('login.html');
+      return null;
+    }
+    var bytes = await fetchAndDecrypt(key, encPath, onProgress);
+    report(onProgress, 97, '解析消息', '整理聊天数据…');
+    await yieldToUI();
+    var pack = JSON.parse(new TextDecoder().decode(bytes));
+    mobilePackCache.set(encPath, pack);
+    return pack;
+  }
+
   async function ensureViewerCached(legacyPath, onProgress) {
     var vid = PATH_TO_SHORT[legacyPath];
     if (!vid) throw new Error('未知页面');
@@ -465,8 +548,20 @@
     await yieldToUI();
     var cached = await idbGet(vid);
     if (cached) {
+      if (global.LoveChatViewer && LoveChatViewer.isChatPack(cached)) {
+        mobilePackCache.set(getEncPath(legacyPath), cached);
+      }
       report(onProgress, 100, '读取缓存', '本地秒开');
-      return { vid: vid, bytes: cached };
+      return { vid: vid, cached: cached };
+    }
+    if (useMobilePack(legacyPath)) {
+      var pack = await getDecryptedChatPack(legacyPath, onProgress);
+      if (!pack) return null;
+      report(onProgress, 90, '本地缓存', '正在保存聊天包…');
+      await yieldToUI();
+      await idbSet(vid, pack);
+      report(onProgress, 97, '本地缓存', '保存完成');
+      return { vid: vid, cached: pack };
     }
     var bytes = await getDecryptedBytes(legacyPath, onProgress);
     if (!bytes) return null;
@@ -474,7 +569,7 @@
     await yieldToUI();
     await idbSet(vid, bytes);
     report(onProgress, 97, '本地缓存', '保存完成');
-    return { vid: vid, bytes: bytes };
+    return { vid: vid, cached: bytes };
   }
 
   async function openInViewer(legacyPath, title, onProgress) {
@@ -488,34 +583,8 @@
     return info;
   }
 
-  async function renderViewerPage(vid) {
-    var legacyPath = VIEWER_SHORT[vid];
-    if (!legacyPath) throw new Error('无效的页面参数');
-    var title = sessionStorage.getItem('love_viewer_title') || TITLE_MAP[legacyPath] || '';
-    LoveLoader.set(10, '加载', '读取本地缓存…');
-    await yieldToUI();
-    var bytes = await idbGet(vid);
-    if (!bytes) {
-      LoveLoader.set(15, '解密', '首次加载，正在解密…');
-      bytes = await getDecryptedBytes(legacyPath, function (p, s, d) {
-        LoveLoader.set(Math.min(85, p), s, d);
-      });
-      if (bytes) {
-        LoveLoader.set(88, '缓存', '正在保存…');
-        await yieldToUI();
-        await idbSet(vid, bytes);
-      }
-    } else {
-      LoveLoader.set(55, '加载', '已从缓存读取 (' + formatBytes(bytes.length) + ')');
-    }
-    if (!bytes) throw new Error('内容为空');
-    await yieldToUI();
-    LoveLoader.set(92, '渲染', '正在解码页面…');
-    await yieldToUI();
-    var html = new TextDecoder().decode(bytes);
-    LoveLoader.set(96, '渲染', '正在显示内容…');
-    await yieldToUI();
-    var backBar =
+  function viewerBackBar(title) {
+    return (
       '<div id="loveViewerBack" style="position:sticky;top:0;z-index:999999;' +
       'padding:max(10px,env(safe-area-inset-top)) 14px 10px;background:rgba(255,245,247,.96);' +
       'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(233,30,99,.15);' +
@@ -524,12 +593,70 @@
       'border-radius:20px;background:linear-gradient(135deg,#E91E63,#B57EDC);color:#fff;text-decoration:none;' +
       'font-size:14px;font-weight:600;">← 返回</a>' +
       '<span style="font-size:14px;color:#7A6B7A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
-      (title.replace(/</g, '&lt;')) + '</span></div>';
+      (title.replace(/</g, '&lt;')) + '</span></div>'
+    );
+  }
+
+  async function renderViewerPage(vid) {
+    var legacyPath = VIEWER_SHORT[vid];
+    if (!legacyPath) throw new Error('无效的页面参数');
+    var title = sessionStorage.getItem('love_viewer_title') || TITLE_MAP[legacyPath] || '';
+    LoveLoader.set(10, '加载', '读取本地缓存…');
+    await yieldToUI();
+    var cached = await idbGet(vid);
+    if (!cached) {
+      LoveLoader.set(15, '解密', '首次加载，正在解密…');
+      if (useMobilePack(legacyPath)) {
+        cached = await getDecryptedChatPack(legacyPath, function (p, s, d) {
+          LoveLoader.set(Math.min(85, p), s, d);
+        });
+        if (cached) {
+          LoveLoader.set(88, '缓存', '正在保存…');
+          await yieldToUI();
+          await idbSet(vid, cached);
+        }
+      } else {
+        var bytes = await getDecryptedBytes(legacyPath, function (p, s, d) {
+          LoveLoader.set(Math.min(85, p), s, d);
+        });
+        if (bytes) {
+          LoveLoader.set(88, '缓存', '正在保存…');
+          await yieldToUI();
+          await idbSet(vid, bytes);
+          cached = bytes;
+        }
+      }
+    } else if (global.LoveChatViewer && LoveChatViewer.isChatPack(cached)) {
+      LoveLoader.set(55, '加载', '已从缓存读取聊天包');
+    } else {
+      LoveLoader.set(55, '加载', '已从缓存读取 (' + formatBytes(cached.byteLength || cached.length || 0) + ')');
+    }
+    if (!cached) throw new Error('内容为空');
+
+    if (global.LoveChatViewer && LoveChatViewer.isChatPack(cached)) {
+      document.body.innerHTML = viewerBackBar(title) + '<div id="loveChatRoot"></div>';
+      LoveLoader.set(96, '渲染', '正在显示聊天…');
+      await yieldToUI();
+      await LoveChatViewer.render(document.getElementById('loveChatRoot'), cached, function (p, s, d) {
+        LoveLoader.set(96 + p * 0.03, s, d);
+      });
+      LoveLoader.set(100, '完成', '欢迎查看');
+      LoveLoader.hide(100);
+      return;
+    }
+
+    var bytes = cached instanceof Uint8Array ? cached : new Uint8Array(cached);
+    await yieldToUI();
+    LoveLoader.set(92, '渲染', '正在解码页面…');
+    await yieldToUI();
+    var html = new TextDecoder().decode(bytes);
+    LoveLoader.set(96, '渲染', '正在显示内容…');
+    await yieldToUI();
     LoveLoader.set(100, '完成', '欢迎查看');
     LoveLoader.hide(100);
     await yieldToUI();
     document.open('text/html', 'replace');
-    document.write(backBar + html);
+    document.write(viewerBackBar(title) + html);
     document.close();
   }
 
@@ -539,7 +666,8 @@
   ];
 
   function hasCachedHtml(legacyPath) {
-    return blobCache.has(legacyPath) || (ENC_MAP[legacyPath] && decryptCache.has(ENC_MAP[legacyPath]));
+    var encPath = getEncPath(legacyPath);
+    return blobCache.has(legacyPath) || (encPath && decryptCache.has(encPath)) || mobilePackCache.has(encPath);
   }
 
   const blobUrls = new Set();
@@ -548,39 +676,54 @@
     if (!isMobileDevice() && !isWeChatBrowser()) return;
     var key = await getSessionKey();
     if (!key) return;
-    for (var i = 0; i < CHAT_PATHS.length; i++) {
-      var p = CHAT_PATHS[i];
-      var vid = PATH_TO_SHORT[p];
-      if (vid) {
-        try {
-          var idbHit = await idbGet(vid);
-          if (idbHit) continue;
-        } catch (e) {}
-      }
-      if (blobCache.has(p) || decryptCache.has(ENC_MAP[p])) continue;
-      try {
-        await fetchAndDecrypt(key, ENC_MAP[p], function (pct, stage, detail) {
-          if (typeof onProgress === 'function') {
-            onProgress(p, pct, stage, detail);
-          }
-        });
-        var bytes = decryptCache.get(ENC_MAP[p]);
-        if (bytes) {
+    await Promise.all(
+      CHAT_PATHS.map(function (p) {
+        return (async function () {
           var vid = PATH_TO_SHORT[p];
           if (vid) {
-            try { await idbSet(vid, bytes); } catch (e) {}
+            try {
+              var idbHit = await idbGet(vid);
+              if (idbHit) return;
+            } catch (e) {}
           }
-          if (!blobCache.has(p) && !isWeChatBrowser()) {
-            var blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
-            var url = URL.createObjectURL(blob);
-            blobUrls.add(url);
-            blobCache.set(p, url);
+          var encPath = getEncPath(p);
+          if (!encPath) return;
+          if (mobilePackCache.has(encPath) || decryptCache.has(encPath)) return;
+          try {
+            if (useMobilePack(p)) {
+              var pack = await getDecryptedChatPack(p, function (pct, stage, detail) {
+                if (typeof onProgress === 'function') onProgress(p, pct, stage, detail);
+              });
+              if (pack && vid) {
+                try {
+                  await idbSet(vid, pack);
+                } catch (e) {}
+              }
+              return;
+            }
+            await fetchAndDecrypt(key, encPath, function (pct, stage, detail) {
+              if (typeof onProgress === 'function') onProgress(p, pct, stage, detail);
+            });
+            var bytes = decryptCache.get(encPath);
+            if (bytes) {
+              if (vid) {
+                try {
+                  await idbSet(vid, bytes);
+                } catch (e) {}
+              }
+              if (!blobCache.has(p) && !isWeChatBrowser()) {
+                var blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
+                var url = URL.createObjectURL(blob);
+                blobUrls.add(url);
+                blobCache.set(p, url);
+              }
+            }
+          } catch (e) {
+            /* non-fatal preload */
           }
-        }
-      } catch (e) {
-        /* non-fatal preload */
-      }
-    }
+        })();
+      })
+    );
   }
 
   function revokeBlob(url) {
@@ -595,7 +738,7 @@
     var target = opts.target || 'tab';
     var title = opts.title || TITLE_MAP[legacyPath] || '';
     var onProgress = opts.onProgress;
-    var encPath = ENC_MAP[legacyPath];
+    var encPath = getEncPath(legacyPath);
     if (!encPath) throw new Error('未知资源: ' + legacyPath);
     await ensureSessionValid();
     var key = await getSessionKey();
@@ -654,6 +797,7 @@
     isMobileDevice,
     isWeChatBrowser,
     shouldUseViewer,
+    shouldUseViewerFor,
     openInViewer,
     renderViewerPage,
     preloadChats,

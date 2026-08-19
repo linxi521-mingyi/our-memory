@@ -873,7 +873,7 @@ function hideModalLoading() {
 }
 
 async function openModal(path, title) {
-  if (LoveCrypto.shouldUseViewer && LoveCrypto.shouldUseViewer()) {
+  if (LoveCrypto.shouldUseViewerFor && LoveCrypto.shouldUseViewerFor(path)) {
     LoveLoader.show(title || '加载中');
     try {
       await LoveCrypto.openInViewer(path, title || '', onLoadProgress);
@@ -943,7 +943,7 @@ async function openModal(path, title) {
 
 async function openTab(path) {
   var title = (LoveCrypto.TITLE_MAP && LoveCrypto.TITLE_MAP[path]) || '聊天记录';
-  if (LoveCrypto.shouldUseViewer && LoveCrypto.shouldUseViewer()) {
+  if (LoveCrypto.shouldUseViewerFor && LoveCrypto.shouldUseViewerFor(path)) {
     LoveLoader.show(title);
     try {
       await LoveCrypto.openInViewer(path, title, onLoadProgress);
