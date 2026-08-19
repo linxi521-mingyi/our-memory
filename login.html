@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>梦召 & 铭怡 · 进入我们的世界</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --rose: #FF6B9D;
+  --rose-deep: #E91E63;
+  --lavender: #B57EDC;
+  --lavender-deep: #9C27B0;
+  --gold: #D4AF37;
+  --gold-light: #F4E4BC;
+}
+
+body {
+  font-family: 'Georgia', 'Noto Serif SC', 'Songti SC', 'Microsoft YaHei', serif;
+  min-height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1a0a1f 0%, #2d1b3d 30%, #1a1a2e 60%, #2d1b3d 100%);
+  position: relative;
+}
+
+/* 动态背景光晕 */
+.bg-orbs {
+  position: fixed; inset: 0; overflow: hidden; z-index: 0;
+}
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  animation: floatOrb 20s ease-in-out infinite;
+}
+.orb1 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, #FF6B9D, transparent);
+  top: -100px; left: -100px;
+  animation-delay: 0s;
+}
+.orb2 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, #B57EDC, transparent);
+  bottom: -100px; right: -100px;
+  animation-delay: -7s;
+}
+.orb3 {
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, #E91E63, transparent);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  animation-delay: -14s;
+  opacity: 0.25;
+}
+@keyframes floatOrb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(50px, -30px) scale(1.1); }
+  66% { transform: translate(-30px, 40px) scale(0.95); }
+}
+
+/* 星空 */
+.stars {
+  position: fixed; inset: 0; z-index: 1;
+}
+.star {
+  position: absolute;
+  width: 2px; height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  animation: twinkle 3s ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.5); }
+}
+
+/* 飘落花瓣 */
+.petals {
+  position: fixed; inset: 0; z-index: 2;
+  pointer-events: none; overflow: hidden;
+}
+.petal {
+  position: absolute;
+  top: -50px;
+  font-size: 16px;
+  opacity: 0;
+  animation: fall linear infinite;
+}
+@keyframes fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.8; }
+  90% { opacity: 0.6; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* 主容器 */
+.login-wrapper {
+  position: relative; z-index: 10;
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+
+/* 登录卡片 */
+.login-card {
+  width: 100%; max-width: 420px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 48px 40px 40px;
+  box-shadow: 
+    0 25px 80px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  animation: cardIn 1s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(40px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 卡片顶部光带 */
+.login-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--rose), var(--lavender), var(--gold), var(--lavender), var(--rose), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 头像区域 */
+.avatars {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin-bottom: 24px;
+}
+.avatar-ring {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(135deg, var(--rose), var(--lavender));
+  box-shadow: 0 0 30px rgba(255, 107, 157, 0.4);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+.avatar-ring:nth-child(3) {
+  animation-delay: -1.25s;
+  box-shadow: 0 0 30px rgba(181, 126, 220, 0.4);
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 107, 157, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(255, 107, 157, 0.6); }
+}
+.avatar-ring img {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+.heart-between {
+  font-size: 24px;
+  color: var(--rose);
+  animation: heartbeat 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 107, 157, 0.6));
+}
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.25); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.15); }
+}
+
+/* 标题 */
+.login-title {
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #fff 0%, var(--gold-light) 50%, #fff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 3px;
+  margin-bottom: 6px;
+}
+.login-subtitle {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 4px;
+  margin-bottom: 36px;
+  text-transform: uppercase;
+}
+
+/* 输入框 */
+.input-group {
+  margin-bottom: 20px;
+  position: relative;
+}
+.input-label {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+  letter-spacing: 2px;
+  padding-left: 4px;
+}
+.input-wrapper {
+  position: relative;
+  display: flex; align-items: center;
+}
+.input-icon {
+  position: absolute; left: 16px;
+  font-size: 16px;
+  opacity: 0.6;
+  z-index: 1;
+}
+.input-field {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  color: #fff;
+  font-size: 15px;
+  font-family: inherit;
+  letter-spacing: 1px;
+  transition: all 0.3s;
+  outline: none;
+}
+.input-field::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+.input-field:focus {
+  border-color: var(--rose);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 107, 157, 0.15), 0 0 20px rgba(255, 107, 157, 0.2);
+}
+.input-field.error {
+  border-color: #ff4757;
+  animation: shake 0.4s ease-in-out;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+/* 登录按钮 */
+.login-btn {
+  width: 100%;
+  padding: 15px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, var(--rose-deep), var(--lavender-deep));
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 4px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+  box-shadow: 0 8px 25px rgba(233, 30, 99, 0.35);
+}
+.login-btn::before {
+  content: '';
+  position: absolute; top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+  transition: left 0.5s;
+}
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(233, 30, 99, 0.5);
+}
+.login-btn:hover::before { left: 100%; }
+.login-btn:active { transform: translateY(0); }
+.login-btn:disabled {
+  opacity: 0.7; cursor: not-allowed;
+  transform: none;
+}
+
+/* 错误提示 */
+.error-msg {
+  text-align: center;
+  color: #ff6b81;
+  font-size: 13px;
+  margin-top: 14px;
+  height: 18px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  letter-spacing: 1px;
+}
+.error-msg.show { opacity: 1; }
+
+/* 底部装饰 */
+.login-footer {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 3px;
+}
+.login-footer .date {
+  color: var(--gold);
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+
+/* 登录成功过渡 */
+.success-overlay {
+  position: fixed; inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 107, 157, 0.3), rgba(0,0,0,0.9));
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden;
+  transition: all 0.6s;
+}
+.success-overlay.show {
+  opacity: 1; visibility: visible;
+}
+.success-heart {
+  font-size: 80px;
+  animation: successPop 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes successPop {
+  0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+  60% { transform: scale(1.3) rotate(10deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .login-card { padding: 36px 24px 28px; }
+  .login-title { font-size: 22px; }
+  .avatar-ring { width: 60px; height: 60px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 背景光晕 -->
+<div class="bg-orbs">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+
+<!-- 星空 -->
+<div class="stars" id="stars"></div>
+
+<!-- 飘落花瓣 -->
+<div class="petals" id="petals"></div>
+
+<!-- 登录卡片 -->
+<div class="login-wrapper">
+  <div class="login-card">
+    <div class="avatars">
+      <div class="avatar-ring">
+        <img src="avatar_boy.jpg" alt="黄梦召" onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#FF6B9D,#B57EDC)'">
+      </div>
+      <span class="heart-between">❤</span>
+      <div class="avatar-ring">
+        <img src="avatar_girl.jpg" alt="高铭怡" onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#B57EDC,#FF6B9D)'">
+      </div>
+    </div>
+    
+    <h1 class="login-title">梦召 & 铭怡</h1>
+    <p class="login-subtitle">Our Love Story · 进入我们的世界</p>
+    
+    <form id="loginForm" onsubmit="return handleLogin(event)">
+      <div class="input-group">
+        <label class="input-label">账号</label>
+        <div class="input-wrapper">
+          <span class="input-icon">👤</span>
+          <input type="text" class="input-field" id="username" placeholder="请输入爱的暗号" autocomplete="off">
+        </div>
+      </div>
+      
+      <div class="input-group">
+        <label class="input-label">密码</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔒</span>
+          <input type="password" class="input-field" id="password" placeholder="请输入专属密码" autocomplete="current-password">
+        </div>
+      </div>
+      
+      <button type="submit" class="login-btn" id="loginBtn">进 入</button>
+      
+      <div class="error-msg" id="errorMsg">账号或密码不对哦，再想想~</div>
+    </form>
+    
+    <div class="login-footer">
+      Since <span class="date">2024.12.12</span> · Forever & Always
+    </div>
+  </div>
+</div>
+
+<!-- 登录成功动画 -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-heart">💕</div>
+</div>
+
+<script src="js/crypto-app.js"></script>
+<script>
+// 生成星空
+const starsContainer = document.getElementById('stars');
+for (let i = 0; i < 80; i++) {
+  const star = document.createElement('div');
+  star.className = 'star';
+  star.style.left = Math.random() * 100 + '%';
+  star.style.top = Math.random() * 100 + '%';
+  star.style.animationDelay = Math.random() * 3 + 's';
+  star.style.animationDuration = (2 + Math.random() * 3) + 's';
+  star.style.width = star.style.height = (1 + Math.random() * 2) + 'px';
+  starsContainer.appendChild(star);
+}
+
+// 生成飘落花瓣
+const petalsContainer = document.getElementById('petals');
+const petalEmojis = ['🌸', '💕', '💗', '✨', '🌺', '💖', '🌹'];
+for (let i = 0; i < 20; i++) {
+  const petal = document.createElement('div');
+  petal.className = 'petal';
+  petal.textContent = petalEmojis[Math.floor(Math.random() * petalEmojis.length)];
+  petal.style.left = Math.random() * 100 + '%';
+  petal.style.animationDuration = (8 + Math.random() * 12) + 's';
+  petal.style.animationDelay = Math.random() * 15 + 's';
+  petal.style.fontSize = (12 + Math.random() * 14) + 'px';
+  petalsContainer.appendChild(petal);
+}
+
+// 登录逻辑：PBKDF2 派生密钥 + AES-GCM 校验 auth.enc（密码不写在代码里）
+async function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const errorMsg = document.getElementById('errorMsg');
+  const loginBtn = document.getElementById('loginBtn');
+  const userInput = document.getElementById('username');
+  const passInput = document.getElementById('password');
+
+  if (!username || !password) {
+    errorMsg.textContent = '请输入用户名和密码';
+    errorMsg.classList.add('show');
+    return false;
+  }
+
+  loginBtn.disabled = true;
+  loginBtn.textContent = '正在验证...';
+  errorMsg.classList.remove('show');
+
+  try {
+    await LoveCrypto.unlockWithPassword(username, password);
+    loginBtn.textContent = '正在进入...';
+    document.getElementById('successOverlay').classList.add('show');
+    setTimeout(() => {
+      window.location.href = 'index.html';
+    }, 900);
+  } catch (err) {
+    userInput.classList.add('error');
+    passInput.classList.add('error');
+    errorMsg.textContent = (err && err.message) ? err.message : '用户名或密码错误';
+    errorMsg.classList.add('show');
+    loginBtn.disabled = false;
+    loginBtn.textContent = '进 入';
+    setTimeout(() => {
+      userInput.classList.remove('error');
+      passInput.classList.remove('error');
+    }, 500);
+    passInput.value = '';
+    passInput.focus();
+  }
+  return false;
+}
+
+// 回车快捷登录
+document.getElementById('password').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') handleLogin(e);
+});
+</script>
+</body>
+</html>

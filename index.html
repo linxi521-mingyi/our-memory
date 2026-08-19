@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>梦召 & 铭怡 · 我们的时间记忆</title>
+<style>
+:root {
+  --rose: #FF6B9D;
+  --rose-deep: #E91E63;
+  --rose-light: #FFE4EC;
+  --lavender: #B57EDC;
+  --lavender-deep: #9C27B0;
+  --bg-grad: linear-gradient(135deg, #FFF0F5 0%, #F3E5F5 35%, #E8EAF6 70%, #FCE4EC 100%);
+  --surface: rgba(255, 255, 255, 0.78);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --ink: #4A3B52;
+  --ink-soft: #7A6B7A;
+  --muted: #B0A0B0;
+  --border: rgba(255, 107, 157, 0.15);
+  --shadow: 0 8px 32px rgba(233, 30, 99, 0.08);
+  --shadow-hover: 0 12px 48px rgba(233, 30, 99, 0.15);
+  --radius: 16px;
+  --radius-lg: 24px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Georgia', 'Noto Serif SC', 'Songti SC', 'Microsoft YaHei', serif;
+  background: var(--bg-grad);
+  background-attachment: fixed;
+  color: var(--ink);
+  line-height: 1.8;
+  overflow-x: hidden;
+}
+.heart-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.heart-bg span {
+  position: absolute; bottom: -30px;
+  font-size: 16px; opacity: 0;
+  animation: floatUp linear infinite;
+}
+@keyframes floatUp {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.3; }
+  100% { transform: translateY(-110vh) rotate(360deg); opacity: 0; }
+}
+.navbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: rgba(255, 245, 247, 0.88);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  z-index: 1000; transition: all 0.3s;
+}
+.nav-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; height: 60px;
+}
+.nav-logo {
+  font-size: 18px; font-weight: 700; color: var(--rose-deep);
+  letter-spacing: 1px; text-decoration: none;
+  display: flex; align-items: center; gap: 6px;
+}
+.nav-links { display: flex; gap: 2px; list-style: none; align-items: center; }
+.nav-item { position: relative; }
+.nav-link {
+  display: flex; align-items: center; gap: 4px;
+  padding: 8px 14px; font-size: 14px; color: var(--ink);
+  text-decoration: none; border-radius: 8px; cursor: pointer;
+  transition: all 0.2s; white-space: nowrap;
+}
+.nav-link:hover, .nav-item:hover .nav-link {
+  background: rgba(255, 107, 157, 0.1); color: var(--rose-deep);
+}
+.nav-dropdown {
+  position: absolute; top: 100%; left: 0;
+  background: var(--surface-strong);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-radius: 12px; box-shadow: var(--shadow);
+  padding: 8px; min-width: 180px;
+  opacity: 0; visibility: hidden; transform: translateY(8px);
+  transition: all 0.2s;
+}
+.nav-item:hover .nav-dropdown { opacity: 1; visibility: visible; transform: translateY(0); }
+.dropdown-link {
+  display: block; padding: 8px 16px;
+  font-size: 13px; color: var(--ink-soft);
+  text-decoration: none; border-radius: 8px; cursor: pointer;
+  transition: all 0.15s;
+}
+.dropdown-link:hover { background: rgba(255, 107, 157, 0.08); color: var(--rose-deep); }
+.nav-mobile-toggle { display: none; font-size: 24px; cursor: pointer; background: none; border: none; color: var(--rose-deep); }
+section { position: relative; z-index: 1; }
+.container { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+.hero {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 80px 24px 40px; position: relative;
+}
+.hero-avatars { display: flex; align-items: center; gap: 24px; margin-bottom: 32px; }
+.hero-avatar {
+  width: 100px; height: 100px; border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 24px rgba(233, 30, 99, 0.15);
+  object-fit: cover;
+}
+.hero-heart { font-size: 32px; animation: heartbeat 1.5s ease-in-out infinite; }
+@keyframes heartbeat { 0%,100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+.hero-names {
+  font-size: 44px; font-weight: 700;
+  background: linear-gradient(135deg, var(--rose-deep), var(--lavender-deep));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px; letter-spacing: 3px;
+}
+.hero-subtitle { font-size: 16px; color: var(--ink-soft); margin-bottom: 4px; letter-spacing: 2px; }
+.hero-date { font-size: 15px; color: var(--muted); margin-bottom: 28px; }
+.hero-counter {
+  display: flex; gap: 14px; margin-bottom: 32px; flex-wrap: wrap; justify-content: center;
+}
+.counter-item {
+  background: var(--surface); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius); padding: 14px 22px;
+  box-shadow: var(--shadow); text-align: center; min-width: 85px;
+  border: 1px solid var(--border);
+}
+.counter-num {
+  font-size: 30px; font-weight: 700; color: var(--rose-deep);
+  font-variant-numeric: tabular-nums;
+}
+.counter-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.hero-quote {
+  max-width: 620px; font-size: 16px; color: var(--ink-soft);
+  font-style: italic; line-height: 2;
+  padding: 20px 28px; border-left: 3px solid var(--rose);
+  background: var(--surface); border-radius: 0 var(--radius) var(--radius) 0;
+  box-shadow: var(--shadow);
+}
+.scroll-hint {
+  position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+  font-size: 13px; color: var(--muted);
+  animation: bounce 2s infinite;
+}
+@keyframes bounce { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(8px); } }
+.section-header { text-align: center; margin-bottom: 40px; padding-top: 80px; }
+.section-tag {
+  display: inline-block; font-size: 11px; letter-spacing: 4px;
+  color: var(--rose); text-transform: uppercase; margin-bottom: 10px; font-weight: 600;
+}
+.section-title { font-size: 34px; font-weight: 700; color: var(--ink); margin-bottom: 8px; letter-spacing: 1px; }
+.section-subtitle { font-size: 15px; color: var(--muted); }
+.year-filter {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 40px; flex-wrap: wrap;
+}
+.year-btn {
+  padding: 8px 20px; border: 1px solid var(--border);
+  background: var(--surface); border-radius: 20px;
+  font-size: 14px; color: var(--ink-soft); cursor: pointer;
+  transition: all 0.25s; font-family: inherit;
+  backdrop-filter: blur(10px);
+}
+.year-btn:hover { border-color: var(--rose); color: var(--rose-deep); }
+.year-btn.active {
+  background: linear-gradient(135deg, var(--rose), var(--lavender));
+  color: #fff; border-color: transparent;
+  box-shadow: 0 4px 16px rgba(233, 30, 99, 0.25);
+}
+.timeline-section { padding: 20px 0 80px; }
+.timeline { position: relative; max-width: 860px; margin: 0 auto; padding-left: 50px; }
+.timeline::before {
+  content: ''; position: absolute; left: 14px; top: 0; bottom: 0;
+  width: 3px; background: linear-gradient(to bottom, var(--rose), var(--lavender), var(--rose), transparent);
+  border-radius: 2px;
+}
+.year-divider { position: relative; margin: 40px 0 24px -50px; text-align: center; }
+.year-divider span {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--rose-deep), var(--lavender-deep));
+  color: #fff; padding: 6px 28px; border-radius: 20px;
+  font-size: 15px; font-weight: 700; letter-spacing: 2px;
+  box-shadow: 0 4px 16px rgba(233, 30, 99, 0.2);
+}
+.timeline-item { position: relative; margin-bottom: 32px; }
+.timeline-dot {
+  position: absolute; left: -42px; top: 6px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--rose), var(--lavender));
+  border: 3px solid #fff; box-shadow: 0 2px 8px rgba(233, 30, 99, 0.25);
+  transition: all 0.3s;
+}
+.timeline-item:hover .timeline-dot { transform: scale(1.3); box-shadow: 0 4px 16px rgba(233, 30, 99, 0.4); }
+.timeline-date {
+  font-size: 13px; color: var(--rose-deep); font-weight: 600;
+  margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
+}
+.timeline-date .month-tag {
+  background: var(--rose-light); color: var(--rose-deep);
+  padding: 2px 10px; border-radius: 10px; font-size: 11px;
+}
+.timeline-content {
+  background: var(--surface); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius); padding: 18px 22px;
+  box-shadow: var(--shadow); transition: all 0.3s;
+  border: 1px solid var(--border);
+}
+.timeline-content:hover {
+  box-shadow: var(--shadow-hover); transform: translateY(-2px);
+  border-color: rgba(255, 107, 157, 0.3);
+}
+.timeline-title { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+.timeline-desc { font-size: 14px; color: var(--ink-soft); line-height: 1.9; }
+/* 时间线图片画廊 */
+.timeline-gallery {
+  display: grid; gap: 8px; margin-top: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+.timeline-gallery.single { grid-template-columns: 1fr; max-width: 320px; }
+.timeline-gallery.double { grid-template-columns: 1fr 1fr; max-width: 400px; }
+.timeline-gallery.triple { grid-template-columns: repeat(3, 1fr); }
+.timeline-img {
+  width: 100%; aspect-ratio: 1; object-fit: cover;
+  border-radius: 10px; cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid rgba(255,255,255,0.6);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.timeline-img:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 16px rgba(233, 30, 99, 0.2);
+}
+.timeline-img-count {
+  font-size: 11px; color: var(--muted); margin-top: 6px;
+  display: flex; align-items: center; gap: 4px;
+}
+/* 时间线视频 */
+.timeline-video-wrapper {
+  margin-top: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  border: 2px solid rgba(255,255,255,0.6);
+}
+.timeline-video-label {
+  background: linear-gradient(135deg, var(--rose), var(--lavender));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.timeline-video-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+}
+.timeline-bilibili {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px; margin: 32px 0;
+}
+.stat-card {
+  background: var(--surface); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius); padding: 24px 20px; text-align: center;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  transition: all 0.3s;
+}
+.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+.stat-num {
+  font-size: 34px; font-weight: 700;
+  background: linear-gradient(135deg, var(--rose-deep), var(--lavender-deep));
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.stat-label { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.card-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px; margin: 32px 0;
+}
+.card {
+  background: var(--surface); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-lg); padding: 28px;
+  box-shadow: var(--shadow); transition: all 0.3s;
+  cursor: pointer; border: 1px solid var(--border);
+}
+.card:hover { box-shadow: var(--shadow-hover); transform: translateY(-4px); }
+.card-icon { font-size: 36px; margin-bottom: 16px; }
+.card-title { font-size: 18px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.card-desc { font-size: 14px; color: var(--ink-soft); margin-bottom: 16px; line-height: 1.7; }
+.card-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--rose-deep);
+  text-decoration: none; font-weight: 600;
+}
+.card-btn::after { content: '→'; transition: transform 0.2s; }
+.card:hover .card-btn::after { transform: translateX(4px); }
+.memory-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px; margin: 32px 0;
+}
+.memory-card {
+  background: var(--surface); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius); padding: 22px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  transition: all 0.3s;
+}
+.memory-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
+.memory-emoji { font-size: 30px; margin-bottom: 10px; }
+.memory-title { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.memory-desc { font-size: 13px; color: var(--ink-soft); line-height: 1.6; }
+.letter-section { padding: 40px 0 60px; }
+.letter {
+  max-width: 680px; margin: 0 auto 40px;
+  background: #FFF9FA; border-radius: var(--radius-lg);
+  padding: 44px; box-shadow: var(--shadow);
+  border: 1px solid var(--border); position: relative;
+}
+.letter::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--rose), var(--lavender));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.letter-date { font-size: 13px; color: var(--rose); margin-bottom: 16px; font-style: italic; }
+.letter-title { font-size: 22px; font-weight: 700; color: var(--ink); margin-bottom: 24px; }
+.letter-body { font-size: 15px; color: var(--ink-soft); line-height: 2.1; white-space: pre-wrap; }
+.letter-signature { margin-top: 28px; font-size: 14px; color: var(--rose); text-align: right; font-style: italic; }
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  z-index: 2000; display: none;
+  align-items: center; justify-content: center; padding: 40px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: #fff; border-radius: var(--radius-lg);
+  width: 100%; max-width: 1100px; height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.2);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; border-bottom: 1px solid #eee;
+  background: #FFF5F7;
+}
+.modal-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.modal-close, .modal-open-tab {
+  width: 32px; height: 32px; border: none; background: none;
+  font-size: 18px; cursor: pointer; color: var(--muted);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-close:hover, .modal-open-tab:hover { background: rgba(255, 107, 157, 0.1); color: var(--rose-deep); }
+.modal-body { flex: 1; overflow: hidden; }
+.modal-body iframe { width: 100%; height: 100%; border: none; }
+/* 图片灯箱 */
+.lightbox {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+  z-index: 3000; display: none;
+  align-items: center; justify-content: center;
+  cursor: zoom-out;
+}
+.lightbox.active { display: flex; }
+.lightbox img {
+  max-width: 90vw; max-height: 90vh;
+  border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  object-fit: contain;
+}
+.lightbox-close {
+  position: absolute; top: 20px; right: 24px;
+  color: #fff; font-size: 32px; cursor: pointer;
+  background: none; border: none; opacity: 0.8;
+  transition: opacity 0.2s;
+}
+.lightbox-close:hover { opacity: 1; }
+.lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  color: #fff; font-size: 36px; cursor: pointer;
+  background: rgba(255,255,255,0.1); border: none;
+  width: 50px; height: 50px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.lightbox-nav:hover { background: rgba(255,255,255,0.25); }
+.lightbox-prev { left: 24px; }
+.lightbox-next { right: 24px; }
+.lightbox-counter {
+  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  color: #fff; font-size: 14px; opacity: 0.8;
+}
+.footer {
+  text-align: center; padding: 48px 24px 32px;
+  color: var(--muted); font-size: 13px;
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+}
+.footer-heart { color: var(--rose); }
+.fade-in { opacity: 0; transform: translateY(30px); transition: all 0.6s ease-out; }
+.fade-in.visible { opacity: 1; transform: translateY(0); }
+.back-top {
+  position: fixed; bottom: 30px; right: 30px;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--rose), var(--lavender));
+  color: #fff; border: none; cursor: pointer;
+  font-size: 18px; box-shadow: 0 4px 16px rgba(233, 30, 99, 0.3);
+  opacity: 0; visibility: hidden; transition: all 0.3s;
+  z-index: 999;
+}
+.back-top.show { opacity: 1; visibility: visible; }
+.back-top:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(233, 30, 99, 0.4); }
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .nav-mobile-toggle { display: block; }
+  .nav-links.mobile-open {
+    display: flex; flex-direction: column; position: absolute;
+    top: 60px; left: 0; right: 0; background: var(--surface-strong);
+    padding: 16px; gap: 4px; box-shadow: var(--shadow);
+  }
+  .nav-dropdown { position: static; opacity: 1; visibility: visible; transform: none; box-shadow: none; padding: 0 0 0 16px; }
+  .hero-names { font-size: 30px; letter-spacing: 1px; }
+  .hero-avatar { width: 72px; height: 72px; }
+  .counter-num { font-size: 24px; }
+  .counter-item { padding: 10px 16px; min-width: 70px; }
+  .section-title { font-size: 26px; }
+  .letter { padding: 28px 20px; }
+  .modal { height: 90vh; }
+  .timeline { padding-left: 36px; }
+  .timeline-dot { left: -30px; }
+  .timeline::before { left: 10px; }
+  .year-divider { margin-left: -36px; }
+  .timeline-gallery { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+}
+</style>
+</head>
+<body>
+<script>
+// 登录 / 解密密钥校验
+(function() {
+  if (!sessionStorage.getItem('love_aes_key')) {
+    window.location.replace('login.html');
+  }
+})();
+</script>
+
+<div class="heart-bg" id="heartBg"></div>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="#hero" class="nav-logo">❤ 梦召 & 铭怡</a>
+    <button class="nav-mobile-toggle" onclick="toggleMobileNav()">☰</button>
+    <ul class="nav-links" id="navLinks">
+      <li class="nav-item"><a class="nav-link" href="#hero">首页</a></li>
+      <li class="nav-item"><a class="nav-link" href="#timeline">时间记忆</a></li>
+      <li class="nav-item"><a class="nav-link" href="#memories">美好回忆</a></li>
+      <li class="nav-item">
+        <a class="nav-link">聊天记录 ▾</a>
+        <div class="nav-dropdown">
+          <a class="dropdown-link" onclick="openTab('微信聊天记录导出/高铭怡聊天记录.html')">微信聊天记录</a>
+          <a class="dropdown-link" onclick="openTab('抖音聊天记录导出/抖音聊天记录.html')">抖音聊天记录</a>
+        </div>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link">数据分析 ▾</a>
+        <div class="nav-dropdown">
+          <a class="dropdown-link" onclick="openModal('微信聊天记录导出/微信聊天频率分析报告.html','微信频率分析')">微信频率分析</a>
+          <a class="dropdown-link" onclick="openModal('抖音聊天记录导出/聊天频率分析报告.html','抖音频率分析')">抖音频率分析</a>
+          <a class="dropdown-link" onclick="openModal('性格分析报告/性格分析报告.html','性格分析报告')">性格分析</a>
+        </div>
+      </li>
+      <li class="nav-item"><a class="nav-link" onclick="openModal('AI智能体/AI智能体.html','AI智能体')">AI智能体</a></li>
+      <li class="nav-item"><a class="nav-link" href="#letters">写给你的信</a></li>
+      <li class="nav-item"><a class="nav-link" href="#" onclick="LoveCrypto.clearSession();location.href='login.html';return false;">退出</a></li>
+    </ul>
+  </div>
+</nav>
+
+<section class="hero" id="hero">
+  <div class="hero-avatars">
+    <img class="hero-avatar" src="avatar_boy.jpg" alt="黄梦召" onerror="this.style.display='none'">
+    <span class="hero-heart">❤</span>
+    <img class="hero-avatar" src="avatar_girl.jpg" alt="高铭怡" onerror="this.style.display='none'">
+  </div>
+  <h1 class="hero-names">黄梦召 & 高铭怡</h1>
+  <p class="hero-subtitle">我 们 的 时 间 记 忆</p>
+  <p class="hero-date">2024年12月12日 · 在一起的日子 · 未完待续</p>
+  <div class="hero-counter" id="counter">
+    <div class="counter-item"><div class="counter-num" id="d-days">0</div><div class="counter-label">天</div></div>
+    <div class="counter-item"><div class="counter-num" id="d-hours">0</div><div class="counter-label">小时</div></div>
+    <div class="counter-item"><div class="counter-num" id="d-mins">0</div><div class="counter-label">分钟</div></div>
+    <div class="counter-item"><div class="counter-num" id="d-secs">0</div><div class="counter-label">秒</div></div>
+  </div>
+  <div class="hero-quote" id="heroQuote">正在解密我们的故事…</div>
+  <div class="scroll-hint">向下滚动，开启我们的故事 ↓</div>
+</section>
+
+<section id="love-data" style="padding: 20px 0 40px;">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-card fade-in"><div class="stat-num" id="stat-days">0</div><div class="stat-label">在一起的天数</div></div>
+      <div class="stat-card fade-in"><div class="stat-num">89</div><div class="stat-label">时间记忆事件</div></div>
+      <div class="stat-card fade-in"><div class="stat-num">173</div><div class="stat-label">珍藏的照片</div></div>
+      <div class="stat-card fade-in"><div class="stat-num">4</div><div class="stat-label">珍贵视频回忆</div></div>
+      <div class="stat-card fade-in"><div class="stat-num">82,010</div><div class="stat-label">双平台聊天消息</div></div>
+      <div class="stat-card fade-in"><div class="stat-num">∞</div><div class="stat-label">永远的记忆</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="timeline-section" id="timeline">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">OUR TIMELINE</span>
+      <h2 class="section-title">时间记忆</h2>
+      <p class="section-subtitle">从2024年11月到2026年7月，每一个值得铭记的瞬间</p>
+    </div>
+    <div class="year-filter" id="yearFilter">
+      <button class="year-btn active" onclick="filterYear('all',this)">全部</button>
+      <button class="year-btn" onclick="filterYear('2024',this)">2024年</button>
+      <button class="year-btn" onclick="filterYear('2025',this)">2025年</button>
+      <button class="year-btn" onclick="filterYear('2026',this)">2026年</button>
+    </div>
+    <div class="timeline" id="timelineContainer"></div>
+  </div>
+</section>
+
+<section id="memories" style="padding: 40px 0 60px;">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">BEAUTIFUL MEMORIES</span>
+      <h2 class="section-title">美好回忆</h2>
+      <p class="section-subtitle">那些一起走过的路，吃过的饭，去过的地方</p>
+    </div>
+    <div class="memory-grid" id="memoryGrid"></div>
+  </div>
+</section>
+
+<section id="chat-records" style="padding: 40px 0 60px;">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">CHAT & ANALYSIS</span>
+      <h2 class="section-title">聊天记录与分析</h2>
+      <p class="section-subtitle">82,010条消息，用数据读懂我们的故事</p>
+    </div>
+    <div class="card-grid">
+      <div class="card fade-in" onclick="openTab('微信聊天记录导出/高铭怡聊天记录.html')">
+        <div class="card-icon">💬</div>
+        <div class="card-title">微信聊天记录</div>
+        <div class="card-desc">34,660条微信消息，从最初的热烈到后来的沉默，每一条都是我们共同的记忆。</div>
+        <a class="card-btn">查看记录</a>
+      </div>
+      <div class="card fade-in" onclick="openTab('抖音聊天记录导出/抖音聊天记录.html')">
+        <div class="card-icon">📱</div>
+        <div class="card-title">抖音聊天记录</div>
+        <div class="card-desc">47,350条抖音消息，那些在短视频之外的私语，记录着另一个平台的我们。</div>
+        <a class="card-btn">查看记录</a>
+      </div>
+      <div class="card fade-in" onclick="openModal('微信聊天记录导出/微信聊天频率分析报告.html','微信频率分析')">
+        <div class="card-icon">📊</div>
+        <div class="card-title">微信频率分析</div>
+        <div class="card-desc">统计微信聊天频率、时间分布、消息占比，看看谁更主动，谁话更多。</div>
+        <a class="card-btn">查看报告</a>
+      </div>
+      <div class="card fade-in" onclick="openModal('抖音聊天记录导出/聊天频率分析报告.html','抖音频率分析')">
+        <div class="card-icon">📈</div>
+        <div class="card-title">抖音频率分析</div>
+        <div class="card-desc">抖音聊天频率分析，包含消息统计、活跃时段、双方对比等维度。</div>
+        <a class="card-btn">查看报告</a>
+      </div>
+      <div class="card fade-in" onclick="openModal('性格分析报告/性格分析报告.html','性格分析报告')">
+        <div class="card-icon">🧠</div>
+        <div class="card-title">性格分析报告</div>
+        <div class="card-desc">基于82,010条聊天记录，深度分析两人的性格特征与沟通模式。</div>
+        <a class="card-btn">查看报告</a>
+      </div>
+      <div class="card fade-in" onclick="openModal('AI智能体/AI智能体.html','AI智能体')">
+        <div class="card-icon">🤖</div>
+        <div class="card-title">AI智能体</div>
+        <div class="card-desc">基于真实聊天记录训练的AI智能体，模拟两人的性格与回复风格。</div>
+        <a class="card-btn">开始对话</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="letter-section" id="letters">
+  <div class="container">
+    <div class="section-header fade-in">
+      <span class="section-tag">LETTERS TO YOU</span>
+      <h2 class="section-title">写给你的信</h2>
+      <p class="section-subtitle">那些深夜里写下的文字，每一字都是真心</p>
+    </div>
+        <div id="lettersMount"><p style="text-align:center;color:var(--muted);">信件解密中…</p></div>
+  </div>
+</section>
+
+<footer class="footer">
+  <p>黄梦召 & 高铭怡 · 2024.12.12 — 永远</p>
+  <p style="margin-top:8px;">这份记忆用 <span class="footer-heart">❤</span> 保存 · 即使分开，回忆依然温暖</p>
+  <p style="margin-top:8px; font-size:12px; color:var(--muted);">本网站基于82,010条真实聊天记录、101件时间记忆、173张照片构建</p>
+</footer>
+
+<button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- 内嵌弹窗 -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">标题</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="modal-open-tab" onclick="openModalInTab()" title="在新标签页中打开">↗</button>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body"><iframe id="modalFrame" src=""></iframe></div>
+  </div>
+</div>
+
+<!-- 图片灯箱 -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button class="lightbox-nav lightbox-prev" onclick="event.stopPropagation();navLightbox(-1)">‹</button>
+  <img id="lightboxImg" src="" alt="">
+  <button class="lightbox-nav lightbox-next" onclick="event.stopPropagation();navLightbox(1)">›</button>
+  <div class="lightbox-counter" id="lightboxCounter"></div>
+</div>
+
+<script src="js/crypto-app.js"></script>
+<script>
+// ============ 图片映射（日期 -> 图片路径数组） ============
+let imageMap = {};
+
+// ============ 视频映射（B站嵌入） ============
+let videoMap = {};
+
+// ============ 时间线数据 ============
+let timelineData = [];
+
+// ============ 美好回忆数据 ============
+let memoryData = [];
+
+// ============ 灯箱状态 ============
+let lightboxImages = [];
+let lightboxIndex = 0;
+
+function openLightbox(images, index) {
+  lightboxImages = images;
+  lightboxIndex = index;
+  updateLightbox();
+  document.getElementById('lightbox').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function updateLightbox() {
+  document.getElementById('lightboxImg').src = lightboxImages[lightboxIndex];
+  document.getElementById('lightboxCounter').textContent = (lightboxIndex + 1) + ' / ' + lightboxImages.length;
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('active');
+  document.body.style.overflow = '';
+}
+function navLightbox(dir) {
+  lightboxIndex = (lightboxIndex + dir + lightboxImages.length) % lightboxImages.length;
+  updateLightbox();
+}
+document.addEventListener('keydown', function(e) {
+  if (!document.getElementById('lightbox').classList.contains('active')) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft') navLightbox(-1);
+  if (e.key === 'ArrowRight') navLightbox(1);
+});
+
+// ============ 渲染时间线 ============
+function renderTimeline(filter = 'all') {
+  const container = document.getElementById('timelineContainer');
+  container.innerHTML = '';
+  let currentYear = '';
+  
+  timelineData.forEach((item) => {
+    if (filter !== 'all' && item.year !== filter) return;
+    
+    if (item.year !== currentYear) {
+      currentYear = item.year;
+      const divider = document.createElement('div');
+      divider.className = 'year-divider fade-in';
+      divider.innerHTML = `<span>${currentYear}年</span>`;
+      container.appendChild(divider);
+    }
+    
+    const div = document.createElement('div');
+    div.className = 'timeline-item fade-in';
+    
+    // 查找该日期的图片
+    const imgs = imageMap[item.date] || [];
+    let galleryHtml = '';
+    if (imgs.length > 0) {
+      let cls = '';
+      if (imgs.length === 1) cls = 'single';
+      else if (imgs.length === 2) cls = 'double';
+      else if (imgs.length === 3) cls = 'triple';
+      
+      let imgsHtml = imgs.map((src, i) => 
+        `<img class="timeline-img" src="${src}" alt="" onclick="openLightbox(${JSON.stringify(imgs).replace(/"/g,'&quot;')},${i})" onerror="this.style.display='none'">`
+      ).join('');
+      
+      galleryHtml = `<div class="timeline-gallery ${cls}">${imgsHtml}</div>
+        <div class="timeline-img-count">📷 ${imgs.length}张照片 · 点击放大查看</div>`;
+    }
+    
+    // 查找该日期的视频
+    const videos = videoMap[item.date] || [];
+    let videoHtml = '';
+    if (videos.length > 0) {
+      videoHtml = videos.map(v => `
+        <div class="timeline-video-wrapper">
+          <div class="timeline-video-label">🎬 ${v.title} · 珍贵视频回忆</div>
+          <div class="timeline-video-container">
+            <iframe src="https://player.bilibili.com/player.html?bvid=${v.bvid}&page=1&autoplay=0&danmaku=0&high_quality=1" 
+                    scrolling="no" border="0" frameborder="no" framespacing="0" 
+                    allowfullscreen="true" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" class="timeline-bilibili">
+            </iframe>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    div.innerHTML = `
+      <div class="timeline-dot"></div>
+      <div class="timeline-date">
+        <span class="month-tag">${item.month}月</span>
+        ${item.date}
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-title">${item.title}</div>
+        <div class="timeline-desc">${item.desc}</div>
+        ${galleryHtml}
+        ${videoHtml}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+  
+  setTimeout(() => {
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+  }, 50);
+}
+
+// ============ 渲染美好回忆 ============
+function renderMemories() {
+  const grid = document.getElementById('memoryGrid');
+  memoryData.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'memory-card fade-in';
+    div.innerHTML = `
+      <div class="memory-emoji">${item.emoji}</div>
+      <div class="memory-title">${item.title}</div>
+      <div class="memory-desc">${item.desc}</div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+// ============ 年份筛选 ============
+function filterYear(year, btn) {
+  document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTimeline(year);
+}
+
+// ============ 计数器 ============
+const startDate = new Date('2024-12-12T00:00:00');
+function updateCounter() {
+  const now = new Date();
+  const diff = now - startDate;
+  const days = Math.floor(diff / 86400000);
+  document.getElementById('d-days').textContent = days;
+  document.getElementById('d-hours').textContent = Math.floor((diff % 86400000) / 3600000);
+  document.getElementById('d-mins').textContent = Math.floor((diff % 3600000) / 60000);
+  document.getElementById('d-secs').textContent = Math.floor((diff % 60000) / 1000);
+  // 同步统计卡片的天数
+  const statDays = document.getElementById('stat-days');
+  if (statDays) statDays.textContent = days;
+}
+updateCounter();
+setInterval(updateCounter, 1000);
+
+// ============ 飘心 ============
+const heartEmojis = ['❤', '💕', '💗', '💓', '💖', '🌹', '✨', '🌸'];
+const heartBg = document.getElementById('heartBg');
+for (let i = 0; i < 25; i++) {
+  const span = document.createElement('span');
+  span.textContent = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
+  span.style.left = Math.random() * 100 + '%';
+  span.style.fontSize = (12 + Math.random() * 18) + 'px';
+  span.style.animationDuration = (8 + Math.random() * 14) + 's';
+  span.style.animationDelay = (Math.random() * 18) + 's';
+  heartBg.appendChild(span);
+}
+
+// ============ Modal (decrypt on demand) ============
+let currentModalPath = '';
+let currentModalBlob = null;
+async function openModal(path, title) {
+  currentModalPath = path;
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalOverlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+  const frame = document.getElementById('modalFrame');
+  frame.src = '';
+  try {
+    if (currentModalBlob) LoveCrypto.revokeBlob(currentModalBlob);
+    const opened = await LoveCrypto.openDecryptedHtml(path, { target: 'none' });
+    currentModalBlob = opened.url;
+    frame.src = opened.url;
+  } catch (err) {
+    alert('解密失败：' + (err && err.message ? err.message : err));
+    closeModal();
+  }
+}
+async function openTab(path) {
+  try {
+    await LoveCrypto.openDecryptedHtml(path, { target: 'tab' });
+  } catch (err) {
+    alert('解密失败：' + (err && err.message ? err.message : err));
+  }
+}
+function openModalInTab() {
+  if (currentModalPath) openTab(currentModalPath);
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').classList.remove('active');
+  document.getElementById('modalFrame').src = '';
+  if (currentModalBlob) {
+    LoveCrypto.revokeBlob(currentModalBlob);
+    currentModalBlob = null;
+  }
+  document.body.style.overflow = '';
+}
+
+// ============ 移动端导航 ============
+function toggleMobileNav() {
+  document.getElementById('navLinks').classList.toggle('mobile-open');
+}
+
+// ============ 平滑滚动 ============
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', function(e) {
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('navLinks').classList.remove('mobile-open');
+    }
+  });
+});
+
+// ============ 滚动动画 ============
+const observer = new IntersectionObserver(function(entries) {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) entry.target.classList.add('visible');
+  });
+}, { threshold: 0.08 });
+
+// ============ 返回顶部 ============
+window.addEventListener('scroll', function() {
+  const btn = document.getElementById('backTop');
+  if (window.scrollY > 500) btn.classList.add('show');
+  else btn.classList.remove('show');
+});
+
+// ============ ESC关闭弹窗 ============
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+// ============ 初始化（解密后渲染） ============
+async function bootEncryptedContent() {
+  try {
+    const key = await LoveCrypto.getSessionKey();
+    if (!key) {
+      location.replace('login.html');
+      return;
+    }
+    const content = await LoveCrypto.fetchAndDecryptJson(key, 'enc/content.enc');
+    imageMap = content.imageMap || {};
+    videoMap = content.videoMap || {};
+    timelineData = content.timelineData || [];
+    memoryData = content.memoryData || [];
+    const hq = document.getElementById('heroQuote');
+    if (hq && content.heroQuote) hq.innerHTML = content.heroQuote;
+    const lm = document.getElementById('lettersMount');
+    if (lm && content.letterHtml) lm.innerHTML = content.letterHtml;
+    renderTimeline();
+    renderMemories();
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+  } catch (err) {
+    console.error(err);
+    alert('内容解密失败，请重新登录');
+    LoveCrypto.clearSession();
+    location.replace('login.html');
+  }
+}
+bootEncryptedContent();
+</script>
+</body>
+</html>
