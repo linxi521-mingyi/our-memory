@@ -854,12 +854,18 @@ async function openModal(path, title) {
       target: 'none',
       onProgress: onLoadProgress,
     });
+    if (!opened || !opened.url) return;
     currentModalBlob = opened.url;
     frame.src = opened.url;
     LoveLoader.hide();
   } catch (err) {
     LoveLoader.fail((err && err.message) ? err.message : '解密失败');
-    closeModal();
+    if (err && (err.code === 'DECRYPT_FAILED' || (err.message && err.message.indexOf('重新登录') >= 0))) {
+      LoveCrypto.clearSession();
+      setTimeout(function () { location.replace('login.html'); }, 900);
+    } else {
+      closeModal();
+    }
   }
 }
 async function openTab(path) {
@@ -872,6 +878,10 @@ async function openTab(path) {
     LoveLoader.hide();
   } catch (err) {
     LoveLoader.fail((err && err.message) ? err.message : '解密失败');
+    if (err && (err.code === 'DECRYPT_FAILED' || (err.message && err.message.indexOf('重新登录') >= 0))) {
+      LoveCrypto.clearSession();
+      setTimeout(function () { location.replace('login.html'); }, 900);
+    }
   }
 }
 function openModalInTab() {
@@ -932,6 +942,7 @@ document.addEventListener('keydown', function(e) {
 async function bootEncryptedContent() {
   LoveLoader.show('我们的时间记忆');
   try {
+    await LoveCrypto.ensureSessionValid();
     const key = await LoveCrypto.getSessionKey();
     if (!key) {
       location.replace('login.html');

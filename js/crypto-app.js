@@ -2,6 +2,8 @@
 (function (global) {
   const META_URL = 'enc/meta.json';
   const KEY_STORAGE = 'love_aes_key';
+  const META_SALT_KEY = 'love_meta_salt';
+  const ENC_VERSION_KEY = 'love_enc_version';
   const LOGIN_FLAG = 'love_logged_in';
   const CONTENT_CACHE_KEY = 'love_content_cache_v1';
 
@@ -65,9 +67,15 @@
     return out;
   }
 
-  async function fetchJsonWithProgress(url, onProgress, p0, p1) {
+  function encUrl(path) {
+    const ver = sessionStorage.getItem(ENC_VERSION_KEY) || metaCache.value?.salt || '';
+    return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(ver);
+  }
+
+  async function fetchJsonWithProgress(url, onProgress, p0, p1, bustCache) {
     report(onProgress, p0, '连接服务器', '正在请求资源');
-    const res = await fetch(url, { cache: 'default' });
+    const fetchUrl = bustCache ? encUrl(url) : url;
+    const res = await fetch(fetchUrl, { cache: bustCache ? 'no-store' : 'default' });
     if (!res.ok) throw new Error('无法加载 ' + url);
     const bytes = await readResponseBytes(res, onProgress, p0, p1);
     report(onProgress, p1, '解析数据', '整理加密包');
@@ -81,7 +89,7 @@
       return metaCache.value;
     }
     if (metaCache.promise) return metaCache.promise;
-    metaCache.promise = fetchJsonWithProgress(META_URL, onProgress, 2, 8)
+    metaCache.promise = fetchJsonWithProgress(META_URL, onProgress, 2, 8, true)
       .then(function (meta) {
         metaCache.value = meta;
         return meta;
@@ -135,9 +143,32 @@
     const iv = b64ToBytes(payload.iv);
     report(onProgress, (p0 + p1) / 2, 'AES 解密中', '校验完整性');
     const ct = b64ToBytes(payload.ct);
-    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-    report(onProgress, p1, '解密完成', '内容已解锁');
-    return new Uint8Array(plain);
+    try {
+      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+      report(onProgress, p1, '解密完成', '内容已解锁');
+      return new Uint8Array(plain);
+    } catch (e) {
+      const err = new Error('解密失败，请退出后重新登录');
+      err.code = 'DECRYPT_FAILED';
+      err.cause = e;
+      throw err;
+    }
+  }
+
+  async function ensureSessionValid() {
+    const meta = await loadMeta();
+    const storedSalt = sessionStorage.getItem(META_SALT_KEY);
+    const storedVer = sessionStorage.getItem(ENC_VERSION_KEY);
+    const ver = meta.encVersion || meta.salt;
+    if (storedSalt && storedSalt !== meta.salt) {
+      clearSession();
+      throw new Error('站点已更新，请重新登录');
+    }
+    if (storedVer && storedVer !== String(ver)) {
+      clearSession();
+      throw new Error('站点已更新，请重新登录');
+    }
+    return meta;
   }
 
   async function fetchAndDecrypt(key, encPath, onProgress) {
@@ -149,7 +180,7 @@
       return inflight.get(encPath);
     }
     const task = (async function () {
-      const payload = await fetchJsonWithProgress(encPath, onProgress, 10, 72);
+      const payload = await fetchJsonWithProgress(encPath, onProgress, 10, 72, true);
       const bytes = await decryptPayload(key, payload, onProgress, 72, 96);
       decryptCache.set(encPath, bytes);
       return bytes;
@@ -171,14 +202,20 @@
     return JSON.parse(await fetchAndDecryptText(key, encPath, onProgress));
   }
 
-  function saveSessionKey(rawB64) {
+  function saveSessionKey(rawB64, meta) {
     sessionStorage.setItem(KEY_STORAGE, rawB64);
     sessionStorage.setItem(LOGIN_FLAG, 'true');
+    if (meta) {
+      sessionStorage.setItem(META_SALT_KEY, meta.salt || '');
+      sessionStorage.setItem(ENC_VERSION_KEY, String(meta.encVersion || meta.salt || ''));
+    }
     localStorage.removeItem(LOGIN_FLAG);
   }
 
   function clearSession() {
     sessionStorage.removeItem(KEY_STORAGE);
+    sessionStorage.removeItem(META_SALT_KEY);
+    sessionStorage.removeItem(ENC_VERSION_KEY);
     sessionStorage.removeItem(LOGIN_FLAG);
     sessionStorage.removeItem(CONTENT_CACHE_KEY);
     localStorage.removeItem(LOGIN_FLAG);
@@ -219,7 +256,7 @@
       throw new Error('用户名或密码错误');
     }
     const raw = await exportRawKey(key);
-    saveSessionKey(raw);
+    saveSessionKey(raw, meta);
     report(onProgress, 70, '预加载内容', '解锁时间线与信件');
     try {
       const content = await fetchAndDecryptJson(key, 'enc/content.enc', function (p, s, d) {
@@ -278,6 +315,7 @@
     const onProgress = opts.onProgress;
     const encPath = ENC_MAP[legacyPath];
     if (!encPath) throw new Error('未知资源: ' + legacyPath);
+    await ensureSessionValid();
     const key = await getSessionKey();
     if (!key) {
       location.replace('login.html');
@@ -306,7 +344,10 @@
   global.LoveCrypto = {
     META_URL,
     KEY_STORAGE,
+    META_SALT_KEY,
+    ENC_VERSION_KEY,
     CONTENT_CACHE_KEY,
+    ensureSessionValid,
     loadMeta,
     deriveKey,
     unlockWithPassword,

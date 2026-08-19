@@ -3,7 +3,9 @@
   "kdf": "PBKDF2",
   "hash": "SHA-256",
   "iterations": 100000,
-  "salt": "rEeMzP6Tl/H1N48f8+X85A==",
+  "salt": "ukwEoVQBZ7M68sPaQBScJQ==",
   "algo": "AES-256-GCM",
-  "keyLen": 32
+  "keyLen": 32,
+  "encVersion": 1,
+  "builtAt": "2026-08-19T09:00:56Z"
 }
