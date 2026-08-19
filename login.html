@@ -415,7 +415,7 @@ body {
 <script>
 // 生成星空
 const starsContainer = document.getElementById('stars');
-for (let i = 0; i < 80; i++) {
+for (let i = 0; i < 30; i++) {
   const star = document.createElement('div');
   star.className = 'star';
   star.style.left = Math.random() * 100 + '%';
@@ -429,7 +429,7 @@ for (let i = 0; i < 80; i++) {
 // 生成飘落花瓣
 const petalsContainer = document.getElementById('petals');
 const petalEmojis = ['🌸', '💕', '💗', '✨', '🌺', '💖', '🌹'];
-for (let i = 0; i < 20; i++) {
+for (let i = 0; i < 8; i++) {
   const petal = document.createElement('div');
   petal.className = 'petal';
   petal.textContent = petalEmojis[Math.floor(Math.random() * petalEmojis.length)];
