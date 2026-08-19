@@ -159,12 +159,18 @@
     const meta = await loadMeta();
     const storedSalt = sessionStorage.getItem(META_SALT_KEY);
     const storedVer = sessionStorage.getItem(ENC_VERSION_KEY);
-    const ver = meta.encVersion || meta.salt;
+    const ver = String(meta.encVersion || meta.salt || '');
+    const hasKey = !!sessionStorage.getItem(KEY_STORAGE);
+
+    if (hasKey && !storedSalt) {
+      clearSession();
+      throw new Error('请重新登录以解锁最新内容');
+    }
     if (storedSalt && storedSalt !== meta.salt) {
       clearSession();
       throw new Error('站点已更新，请重新登录');
     }
-    if (storedVer && storedVer !== String(ver)) {
+    if (storedVer && ver && storedVer !== ver) {
       clearSession();
       throw new Error('站点已更新，请重新登录');
     }
