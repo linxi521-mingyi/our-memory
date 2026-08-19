@@ -5,10 +5,10 @@
   const LOGIN_FLAG = 'love_logged_in';
   const CONTENT_CACHE_KEY = 'love_content_cache_v1';
 
-  /** In-memory caches for this tab (survives SPA-like revisits in same page). */
   const metaCache = { value: null, promise: null };
-  const decryptCache = new Map(); // encPath -> Uint8Array
-  const blobCache = new Map(); // legacyPath -> objectURL
+  const decryptCache = new Map();
+  const blobCache = new Map();
+  const inflight = new Map();
 
   function b64ToBytes(b64) {
     const bin = atob(b64);
@@ -26,14 +26,62 @@
     return btoa(s);
   }
 
-  async function loadMeta() {
-    if (metaCache.value) return metaCache.value;
+  function report(onProgress, pct, stage, detail) {
+    if (typeof onProgress === 'function') onProgress(pct, stage, detail);
+  }
+
+  async function readResponseBytes(res, onProgress, p0, p1) {
+    const len = Number(res.headers.get('Content-Length')) || 0;
+    if (!res.body || !res.body.getReader) {
+      const buf = new Uint8Array(await res.arrayBuffer());
+      report(onProgress, p1, '下载完成', '资源已就绪');
+      return buf;
+    }
+    const reader = res.body.getReader();
+    const chunks = [];
+    let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      let t;
+      if (len > 0) {
+        t = p0 + (received / len) * (p1 - p0);
+      } else {
+        t = p0 + (1 - 1 / (1 + received / 800000)) * (p1 - p0);
+      }
+      const mb = (received / 1048576).toFixed(1);
+      report(onProgress, t, '下载加密数据', len ? mb + ' / ' + (len / 1048576).toFixed(1) + ' MB' : mb + ' MB');
+    }
+    let total = 0;
+    for (let i = 0; i < chunks.length; i++) total += chunks[i].length;
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      out.set(chunks[i], offset);
+      offset += chunks[i].length;
+    }
+    return out;
+  }
+
+  async function fetchJsonWithProgress(url, onProgress, p0, p1) {
+    report(onProgress, p0, '连接服务器', '正在请求资源');
+    const res = await fetch(url, { cache: 'default' });
+    if (!res.ok) throw new Error('无法加载 ' + url);
+    const bytes = await readResponseBytes(res, onProgress, p0, p1);
+    report(onProgress, p1, '解析数据', '整理加密包');
+    const text = new TextDecoder().decode(bytes);
+    return JSON.parse(text);
+  }
+
+  async function loadMeta(onProgress) {
+    if (metaCache.value) {
+      report(onProgress, 8, '读取配置', '已使用缓存');
+      return metaCache.value;
+    }
     if (metaCache.promise) return metaCache.promise;
-    metaCache.promise = fetch(META_URL, { cache: 'force-cache' })
-      .then(function (res) {
-        if (!res.ok) throw new Error('无法加载加密元数据');
-        return res.json();
-      })
+    metaCache.promise = fetchJsonWithProgress(META_URL, onProgress, 2, 8)
       .then(function (meta) {
         metaCache.value = meta;
         return meta;
@@ -82,33 +130,45 @@
     );
   }
 
-  async function decryptPayload(key, payload) {
+  async function decryptPayload(key, payload, onProgress, p0, p1) {
+    report(onProgress, p0, 'AES 解密中', '正在解锁内容');
     const iv = b64ToBytes(payload.iv);
+    report(onProgress, (p0 + p1) / 2, 'AES 解密中', '校验完整性');
     const ct = b64ToBytes(payload.ct);
     const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+    report(onProgress, p1, '解密完成', '内容已解锁');
     return new Uint8Array(plain);
   }
 
-  async function fetchAndDecrypt(key, encPath) {
+  async function fetchAndDecrypt(key, encPath, onProgress) {
     if (decryptCache.has(encPath)) {
+      report(onProgress, 95, '读取缓存', '秒开模式');
       return decryptCache.get(encPath);
     }
-    // Allow browser HTTP cache — do NOT bust with Date.now()
-    const res = await fetch(encPath, { cache: 'force-cache' });
-    if (!res.ok) throw new Error('无法加载 ' + encPath);
-    const payload = await res.json();
-    const bytes = await decryptPayload(key, payload);
-    decryptCache.set(encPath, bytes);
-    return bytes;
+    if (inflight.has(encPath)) {
+      return inflight.get(encPath);
+    }
+    const task = (async function () {
+      const payload = await fetchJsonWithProgress(encPath, onProgress, 10, 72);
+      const bytes = await decryptPayload(key, payload, onProgress, 72, 96);
+      decryptCache.set(encPath, bytes);
+      return bytes;
+    })();
+    inflight.set(encPath, task);
+    try {
+      return await task;
+    } finally {
+      inflight.delete(encPath);
+    }
   }
 
-  async function fetchAndDecryptText(key, encPath) {
-    const bytes = await fetchAndDecrypt(key, encPath);
+  async function fetchAndDecryptText(key, encPath, onProgress) {
+    const bytes = await fetchAndDecrypt(key, encPath, onProgress);
     return new TextDecoder().decode(bytes);
   }
 
-  async function fetchAndDecryptJson(key, encPath) {
-    return JSON.parse(await fetchAndDecryptText(key, encPath));
+  async function fetchAndDecryptJson(key, encPath, onProgress) {
+    return JSON.parse(await fetchAndDecryptText(key, encPath, onProgress));
   }
 
   function saveSessionKey(rawB64) {
@@ -139,12 +199,19 @@
     return importRawKey(b64);
   }
 
-  async function unlockWithPassword(username, password) {
-    const meta = await loadMeta();
+  async function unlockWithPassword(username, password, onProgress) {
+    report(onProgress, 3, '验证身份', '读取安全配置');
+    const meta = await loadMeta(onProgress);
+    report(onProgress, 18, '派生密钥', 'PBKDF2 · 10万次迭代');
+    // Yield so UI can paint progress before heavy KDF
+    await new Promise(function (r) { setTimeout(r, 30); });
     const key = await deriveKey(password, meta);
+    report(onProgress, 42, '校验口令', '解密身份凭证');
     let auth;
     try {
-      auth = await fetchAndDecryptJson(key, 'enc/auth.enc');
+      auth = await fetchAndDecryptJson(key, 'enc/auth.enc', function (p, s, d) {
+        report(onProgress, 42 + p * 0.2, s, d);
+      });
     } catch (e) {
       throw new Error('密码错误');
     }
@@ -153,32 +220,36 @@
     }
     const raw = await exportRawKey(key);
     saveSessionKey(raw);
-
-    // Prefetch main content so index.html opens faster
+    report(onProgress, 70, '预加载内容', '解锁时间线与信件');
     try {
-      const content = await fetchAndDecryptJson(key, 'enc/content.enc');
+      const content = await fetchAndDecryptJson(key, 'enc/content.enc', function (p, s, d) {
+        report(onProgress, 70 + p * 0.28, s, d);
+      });
       sessionStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(content));
     } catch (e) {
       /* non-fatal */
     }
+    report(onProgress, 100, '完成', '正在进入…');
     return key;
   }
 
-  async function loadSiteContent(key) {
+  async function loadSiteContent(key, onProgress) {
     const cached = sessionStorage.getItem(CONTENT_CACHE_KEY);
     if (cached) {
+      report(onProgress, 90, '读取本地缓存', '即将呈现');
       try {
-        return JSON.parse(cached);
+        const data = JSON.parse(cached);
+        report(onProgress, 100, '完成', '欢迎回来');
+        return data;
       } catch (e) {
         sessionStorage.removeItem(CONTENT_CACHE_KEY);
       }
     }
-    const content = await fetchAndDecryptJson(key, 'enc/content.enc');
+    const content = await fetchAndDecryptJson(key, 'enc/content.enc', onProgress);
     try {
       sessionStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(content));
-    } catch (e) {
-      /* quota — ignore */
-    }
+    } catch (e) {}
+    report(onProgress, 100, '完成', '渲染记忆中');
     return content;
   }
 
@@ -200,7 +271,11 @@
     }
   }
 
-  async function openDecryptedHtml(legacyPath, { target = 'tab', title = '' } = {}) {
+  async function openDecryptedHtml(legacyPath, opts) {
+    opts = opts || {};
+    const target = opts.target || 'tab';
+    const title = opts.title || '';
+    const onProgress = opts.onProgress;
     const encPath = ENC_MAP[legacyPath];
     if (!encPath) throw new Error('未知资源: ' + legacyPath);
     const key = await getSessionKey();
@@ -211,17 +286,21 @@
 
     let url = blobCache.get(legacyPath);
     if (!url) {
-      const bytes = await fetchAndDecrypt(key, encPath);
+      const bytes = await fetchAndDecrypt(key, encPath, onProgress);
+      report(onProgress, 98, '生成预览', '即将打开');
       const blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
       url = URL.createObjectURL(blob);
       blobUrls.add(url);
       blobCache.set(legacyPath, url);
+    } else {
+      report(onProgress, 100, '读取缓存', '秒开');
     }
 
     if (target === 'tab') {
       window.open(url, '_blank');
     }
-    return { url, title, revoke: function () { /* keep cached for reuse */ } };
+    report(onProgress, 100, '完成', '已打开');
+    return { url, title, revoke: function () {} };
   }
 
   global.LoveCrypto = {

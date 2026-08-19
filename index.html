@@ -247,14 +247,6 @@ section { position: relative; z-index: 1; }
   font-size: 14px;
 }
 .timeline-video-placeholder:hover { background: linear-gradient(135deg, #4a3a50, #3a2a40); }
-.decrypt-toast {
-  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
-  background: rgba(74, 59, 82, 0.92); color: #fff;
-  padding: 10px 18px; border-radius: 999px; font-size: 13px;
-  z-index: 3000; opacity: 0; pointer-events: none;
-  transition: opacity 0.2s; white-space: nowrap;
-}
-.decrypt-toast.show { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .heart-bg span, .hero-heart, .scroll-hint { animation: none !important; }
   .fade-in { opacity: 1; transform: none; transition: none; }
@@ -660,6 +652,7 @@ section { position: relative; z-index: 1; }
   <div class="lightbox-counter" id="lightboxCounter"></div>
 </div>
 
+<script src="js/loader.js"></script>
 <script src="js/crypto-app.js"></script>
 <script>
 // ============ 图片映射（日期 -> 图片路径数组） ============
@@ -712,20 +705,8 @@ function loadBilibili(el, bvid) {
     class="timeline-bilibili" loading="lazy"></iframe>`;
 }
 
-function showDecryptToast(msg) {
-  let el = document.getElementById('decryptToast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'decryptToast';
-    el.className = 'decrypt-toast';
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.classList.add('show');
-}
-function hideDecryptToast() {
-  const el = document.getElementById('decryptToast');
-  if (el) el.classList.remove('show');
+function onLoadProgress(pct, stage, detail) {
+  if (window.LoveLoader) LoveLoader.set(pct, stage, detail);
 }
 
 // ============ 渲染时间线 ============
@@ -867,26 +848,30 @@ async function openModal(path, title) {
   document.body.style.overflow = 'hidden';
   const frame = document.getElementById('modalFrame');
   frame.src = '';
-  showDecryptToast('正在解密加载…');
+  LoveLoader.show(title || '解密加载');
   try {
-    const opened = await LoveCrypto.openDecryptedHtml(path, { target: 'none' });
+    const opened = await LoveCrypto.openDecryptedHtml(path, {
+      target: 'none',
+      onProgress: onLoadProgress,
+    });
     currentModalBlob = opened.url;
     frame.src = opened.url;
+    LoveLoader.hide();
   } catch (err) {
-    alert('解密失败：' + (err && err.message ? err.message : err));
+    LoveLoader.fail((err && err.message) ? err.message : '解密失败');
     closeModal();
-  } finally {
-    hideDecryptToast();
   }
 }
 async function openTab(path) {
-  showDecryptToast('正在解密打开…（首次可能稍慢）');
+  LoveLoader.show('解密聊天记录');
   try {
-    await LoveCrypto.openDecryptedHtml(path, { target: 'tab' });
+    await LoveCrypto.openDecryptedHtml(path, {
+      target: 'tab',
+      onProgress: onLoadProgress,
+    });
+    LoveLoader.hide();
   } catch (err) {
-    alert('解密失败：' + (err && err.message ? err.message : err));
-  } finally {
-    hideDecryptToast();
+    LoveLoader.fail((err && err.message) ? err.message : '解密失败');
   }
 }
 function openModalInTab() {
@@ -945,13 +930,15 @@ document.addEventListener('keydown', function(e) {
 
 // ============ 初始化（解密后渲染） ============
 async function bootEncryptedContent() {
+  LoveLoader.show('我们的时间记忆');
   try {
     const key = await LoveCrypto.getSessionKey();
     if (!key) {
       location.replace('login.html');
       return;
     }
-    const content = await LoveCrypto.loadSiteContent(key);
+    const content = await LoveCrypto.loadSiteContent(key, onLoadProgress);
+    LoveLoader.set(92, '渲染页面', '铺陈时间线');
     imageMap = content.imageMap || {};
     videoMap = content.videoMap || {};
     timelineData = content.timelineData || [];
@@ -963,11 +950,14 @@ async function bootEncryptedContent() {
     renderTimeline();
     renderMemories();
     document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+    LoveLoader.hide(280);
   } catch (err) {
     console.error(err);
-    alert('内容解密失败，请重新登录');
-    LoveCrypto.clearSession();
-    location.replace('login.html');
+    LoveLoader.fail('内容解密失败，请重新登录');
+    setTimeout(function () {
+      LoveCrypto.clearSession();
+      location.replace('login.html');
+    }, 900);
   }
 }
 bootEncryptedContent();

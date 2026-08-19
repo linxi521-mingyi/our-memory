@@ -411,6 +411,7 @@ body {
   <div class="success-heart">💕</div>
 </div>
 
+<script src="js/loader.js"></script>
 <script src="js/crypto-app.js"></script>
 <script>
 // 生成星空
@@ -459,22 +460,26 @@ async function handleLogin(e) {
   loginBtn.disabled = true;
   loginBtn.textContent = '正在验证...';
   errorMsg.classList.remove('show');
+  LoveLoader.show('进入我们的世界');
 
   try {
-    await LoveCrypto.unlockWithPassword(username, password);
-    loginBtn.textContent = '正在进入...';
+    await LoveCrypto.unlockWithPassword(username, password, function (pct, stage, detail) {
+      LoveLoader.set(pct, stage, detail);
+    });
+    LoveLoader.set(100, '完成', '正在进入…');
     document.getElementById('successOverlay').classList.add('show');
-    setTimeout(() => {
+    setTimeout(function () {
       window.location.href = 'index.html';
-    }, 900);
+    }, 500);
   } catch (err) {
+    LoveLoader.fail((err && err.message) ? err.message : '用户名或密码错误');
     userInput.classList.add('error');
     passInput.classList.add('error');
     errorMsg.textContent = (err && err.message) ? err.message : '用户名或密码错误';
     errorMsg.classList.add('show');
     loginBtn.disabled = false;
     loginBtn.textContent = '进 入';
-    setTimeout(() => {
+    setTimeout(function () {
       userInput.classList.remove('error');
       passInput.classList.remove('error');
     }, 500);
