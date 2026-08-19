@@ -873,6 +873,20 @@ function hideModalLoading() {
 }
 
 async function openModal(path, title) {
+  if (LoveCrypto.shouldUseViewer && LoveCrypto.shouldUseViewer()) {
+    LoveLoader.show(title || '加载中');
+    try {
+      await LoveCrypto.openInViewer(path, title || '', onLoadProgress);
+    } catch (err) {
+      LoveLoader.fail((err && err.message) ? err.message : '加载失败');
+      if (err && (err.code === 'DECRYPT_FAILED' || (err.message && err.message.indexOf('重新登录') >= 0))) {
+        LoveCrypto.clearSession();
+        setTimeout(function () { location.replace('login.html'); }, 900);
+      }
+    }
+    return;
+  }
+
   var samePath = currentModalPath === path && currentModalBlob;
   currentModalPath = path;
   title = title || (LoveCrypto.TITLE_MAP && LoveCrypto.TITLE_MAP[path]) || '内容';
@@ -929,6 +943,19 @@ async function openModal(path, title) {
 
 async function openTab(path) {
   var title = (LoveCrypto.TITLE_MAP && LoveCrypto.TITLE_MAP[path]) || '聊天记录';
+  if (LoveCrypto.shouldUseViewer && LoveCrypto.shouldUseViewer()) {
+    LoveLoader.show(title);
+    try {
+      await LoveCrypto.openInViewer(path, title, onLoadProgress);
+    } catch (err) {
+      LoveLoader.fail((err && err.message) ? err.message : '加载失败');
+      if (err && (err.code === 'DECRYPT_FAILED' || (err.message && err.message.indexOf('重新登录') >= 0))) {
+        LoveCrypto.clearSession();
+        setTimeout(function () { location.replace('login.html'); }, 900);
+      }
+    }
+    return;
+  }
   if (LoveCrypto.isMobileDevice && LoveCrypto.isMobileDevice()) {
     return openModal(path, title);
   }

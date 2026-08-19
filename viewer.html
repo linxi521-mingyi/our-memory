@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#FFF5F7">
+<title>加载中…</title>
+<style>
+html, body { margin: 0; padding: 0; background: #f5f5f5; }
+</style>
+<script src="js/loader.js"></script>
+<script src="js/crypto-app.js"></script>
+</head>
+<body>
+<script>
+(function () {
+  if (!sessionStorage.getItem('love_aes_key')) {
+    location.replace('login.html');
+    return;
+  }
+  var title = sessionStorage.getItem('love_viewer_title') || '加载中';
+  var vid = new URLSearchParams(location.search).get('v') || '';
+  LoveLoader.show(title);
+
+  LoveCrypto.renderViewerPage(vid).catch(function (err) {
+    LoveLoader.fail((err && err.message) ? err.message : '加载失败');
+    setTimeout(function () { location.replace('index.html'); }, 1600);
+  });
+})();
+</script>
+</body>
+</html>

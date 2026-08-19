@@ -224,12 +224,18 @@
     sessionStorage.removeItem(ENC_VERSION_KEY);
     sessionStorage.removeItem(LOGIN_FLAG);
     sessionStorage.removeItem(CONTENT_CACHE_KEY);
+    sessionStorage.removeItem('love_viewer_title');
     localStorage.removeItem(LOGIN_FLAG);
     decryptCache.clear();
     blobCache.forEach(function (url) {
       try { URL.revokeObjectURL(url); } catch (e) {}
     });
+    blobUrls.forEach(function (url) {
+      try { URL.revokeObjectURL(url); } catch (e) {}
+    });
     blobCache.clear();
+    blobUrls.clear();
+    idbClear();
   }
 
   function getSessionKeyB64() {
@@ -324,8 +330,152 @@
     return (navigator.maxTouchPoints > 1 && window.innerWidth <= 900);
   }
 
+  function isWeChatBrowser() {
+    return /MicroMessenger/i.test((navigator && navigator.userAgent) || '');
+  }
+
   function shouldUseModal(target) {
+    if (isWeChatBrowser()) return false;
     return target === 'modal' || (target === 'tab' && isMobileDevice());
+  }
+
+  function shouldUseViewer() {
+    return isWeChatBrowser();
+  }
+
+  var VIEWER_SHORT = {
+    'wechat-chat': '微信聊天记录导出/高铭怡聊天记录.html',
+    'douyin-chat': '抖音聊天记录导出/抖音聊天记录.html',
+    'wechat-freq': '微信聊天记录导出/微信聊天频率分析报告.html',
+    'douyin-freq': '抖音聊天记录导出/聊天频率分析报告.html',
+    'personality': '性格分析报告/性格分析报告.html',
+    'ai-agent': 'AI智能体/AI智能体.html',
+  };
+
+  var PATH_TO_SHORT = {};
+  Object.keys(VIEWER_SHORT).forEach(function (k) {
+    PATH_TO_SHORT[VIEWER_SHORT[k]] = k;
+  });
+
+  var IDB_NAME = 'love_memory_viewer_v1';
+  var IDB_STORE = 'pages';
+
+  function openViewerDb() {
+    return new Promise(function (resolve, reject) {
+      if (!global.indexedDB) {
+        reject(new Error('浏览器不支持 IndexedDB'));
+        return;
+      }
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = function (e) {
+        if (!e.target.result.objectStoreNames.contains(IDB_STORE)) {
+          e.target.result.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error('IndexedDB 打开失败')); };
+    });
+  }
+
+  async function idbSet(key, bytes) {
+    var db = await openViewerDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(bytes, key);
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function () { reject(tx.error); };
+    });
+  }
+
+  async function idbGet(key) {
+    var db = await openViewerDb();
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(IDB_STORE, 'readonly');
+      var req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = function () { resolve(req.result || null); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  async function idbClear() {
+    try {
+      var db = await openViewerDb();
+      await new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).clear();
+        tx.oncomplete = function () { resolve(); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  async function getDecryptedBytes(legacyPath, onProgress) {
+    var encPath = ENC_MAP[legacyPath];
+    if (!encPath) throw new Error('未知资源');
+    await ensureSessionValid();
+    var key = await getSessionKey();
+    if (!key) {
+      location.replace('login.html');
+      return null;
+    }
+    return fetchAndDecrypt(key, encPath, onProgress);
+  }
+
+  async function ensureViewerCached(legacyPath, onProgress) {
+    var vid = PATH_TO_SHORT[legacyPath];
+    if (!vid) throw new Error('未知页面');
+    var cached = await idbGet(vid);
+    if (cached) {
+      report(onProgress, 100, '读取缓存', '秒开');
+      return { vid: vid, bytes: cached };
+    }
+    var bytes = await getDecryptedBytes(legacyPath, onProgress);
+    if (!bytes) return null;
+    await idbSet(vid, bytes);
+    return { vid: vid, bytes: bytes };
+  }
+
+  async function openInViewer(legacyPath, title, onProgress) {
+    title = title || TITLE_MAP[legacyPath] || '内容';
+    sessionStorage.setItem('love_viewer_title', title);
+    report(onProgress, 96, '准备页面', '微信浏览器优化模式');
+    var info = await ensureViewerCached(legacyPath, onProgress);
+    if (!info) return null;
+    report(onProgress, 100, '跳转', '正在打开');
+    location.href = 'viewer.html?v=' + encodeURIComponent(info.vid);
+    return info;
+  }
+
+  async function renderViewerPage(vid) {
+    var legacyPath = VIEWER_SHORT[vid];
+    if (!legacyPath) throw new Error('无效的页面参数');
+    var title = sessionStorage.getItem('love_viewer_title') || TITLE_MAP[legacyPath] || '';
+    var bytes = await idbGet(vid);
+    if (!bytes) {
+      bytes = await getDecryptedBytes(legacyPath, function (p, s, d) {
+        LoveLoader.set(Math.min(90, p), s, d);
+      });
+      if (bytes) await idbSet(vid, bytes);
+    }
+    if (!bytes) throw new Error('内容为空');
+    LoveLoader.set(95, '渲染', '正在显示');
+    var html = new TextDecoder().decode(bytes);
+    var backBar =
+      '<div id="loveViewerBack" style="position:sticky;top:0;z-index:999999;' +
+      'padding:max(10px,env(safe-area-inset-top)) 14px 10px;background:rgba(255,245,247,.96);' +
+      'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(233,30,99,.15);' +
+      'display:flex;align-items:center;gap:10px;font-family:-apple-system,BlinkMacSystemFont,\'PingFang SC\',sans-serif;">' +
+      '<a href="index.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;' +
+      'border-radius:20px;background:linear-gradient(135deg,#E91E63,#B57EDC);color:#fff;text-decoration:none;' +
+      'font-size:14px;font-weight:600;">← 返回</a>' +
+      '<span style="font-size:14px;color:#7A6B7A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+      (title.replace(/</g, '&lt;')) + '</span></div>';
+    LoveLoader.hide(120);
+    document.open('text/html', 'replace');
+    document.write(backBar + html);
+    document.close();
   }
 
   const CHAT_PATHS = [
@@ -340,11 +490,18 @@
   const blobUrls = new Set();
 
   async function preloadChats(onProgress) {
-    if (!isMobileDevice()) return;
+    if (!isMobileDevice() && !isWeChatBrowser()) return;
     var key = await getSessionKey();
     if (!key) return;
     for (var i = 0; i < CHAT_PATHS.length; i++) {
       var p = CHAT_PATHS[i];
+      var vid = PATH_TO_SHORT[p];
+      if (vid) {
+        try {
+          var idbHit = await idbGet(vid);
+          if (idbHit) continue;
+        } catch (e) {}
+      }
       if (blobCache.has(p) || decryptCache.has(ENC_MAP[p])) continue;
       try {
         await fetchAndDecrypt(key, ENC_MAP[p], function (pct, stage, detail) {
@@ -353,11 +510,17 @@
           }
         });
         var bytes = decryptCache.get(ENC_MAP[p]);
-        if (bytes && !blobCache.has(p)) {
-          var blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
-          var url = URL.createObjectURL(blob);
-          blobUrls.add(url);
-          blobCache.set(p, url);
+        if (bytes) {
+          var vid = PATH_TO_SHORT[p];
+          if (vid) {
+            try { await idbSet(vid, bytes); } catch (e) {}
+          }
+          if (!blobCache.has(p) && !isWeChatBrowser()) {
+            var blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            blobUrls.add(url);
+            blobCache.set(p, url);
+          }
         }
       } catch (e) {
         /* non-fatal preload */
@@ -434,6 +597,10 @@
     ENC_MAP,
     TITLE_MAP,
     isMobileDevice,
+    isWeChatBrowser,
+    shouldUseViewer,
+    openInViewer,
+    renderViewerPage,
     preloadChats,
     hasCachedHtml,
     revokeBlob,
