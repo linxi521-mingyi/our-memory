@@ -32,38 +32,59 @@
     if (typeof onProgress === 'function') onProgress(pct, stage, detail);
   }
 
+  function yieldToUI() {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, 0);
+    });
+  }
+
+  function formatBytes(n) {
+    if (n < 1048576) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
+  }
+
   async function readResponseBytes(res, onProgress, p0, p1) {
-    const len = Number(res.headers.get('Content-Length')) || 0;
+    var len = Number(res.headers.get('Content-Length')) || 0;
     if (!res.body || !res.body.getReader) {
-      const buf = new Uint8Array(await res.arrayBuffer());
-      report(onProgress, p1, '下载完成', '资源已就绪');
+      report(onProgress, p0 + (p1 - p0) * 0.5, '下载中', '正在获取资源…');
+      await yieldToUI();
+      var buf = new Uint8Array(await res.arrayBuffer());
+      report(onProgress, p1, '下载完成', formatBytes(buf.length) + ' 已就绪');
       return buf;
     }
-    const reader = res.body.getReader();
-    const chunks = [];
-    let received = 0;
+    var reader = res.body.getReader();
+    var chunks = [];
+    var received = 0;
+    var lastReport = 0;
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      let t;
-      if (len > 0) {
-        t = p0 + (received / len) * (p1 - p0);
-      } else {
-        t = p0 + (1 - 1 / (1 + received / 800000)) * (p1 - p0);
+      var result = await reader.read();
+      if (result.done) break;
+      chunks.push(result.value);
+      received += result.value.length;
+      var now = Date.now();
+      if (now - lastReport > 80 || received === result.value.length) {
+        lastReport = now;
+        var t;
+        var detail;
+        if (len > 0 && received <= len * 1.02) {
+          t = p0 + Math.min(1, received / len) * (p1 - p0);
+          detail = formatBytes(received) + ' / ' + formatBytes(len);
+        } else {
+          t = p0 + (1 - 1 / (1 + received / 600000)) * (p1 - p0);
+          detail = '已下载 ' + formatBytes(received);
+        }
+        report(onProgress, t, '下载加密数据', detail);
       }
-      const mb = (received / 1048576).toFixed(1);
-      report(onProgress, t, '下载加密数据', len ? mb + ' / ' + (len / 1048576).toFixed(1) + ' MB' : mb + ' MB');
     }
-    let total = 0;
-    for (let i = 0; i < chunks.length; i++) total += chunks[i].length;
-    const out = new Uint8Array(total);
-    let offset = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      out.set(chunks[i], offset);
-      offset += chunks[i].length;
+    var total = 0;
+    for (var i = 0; i < chunks.length; i++) total += chunks[i].length;
+    var out = new Uint8Array(total);
+    var offset = 0;
+    for (var j = 0; j < chunks.length; j++) {
+      out.set(chunks[j], offset);
+      offset += chunks[j].length;
     }
+    report(onProgress, p1, '下载完成', formatBytes(total) + ' 已下载');
     return out;
   }
 
@@ -74,13 +95,21 @@
 
   async function fetchJsonWithProgress(url, onProgress, p0, p1, bustCache) {
     report(onProgress, p0, '连接服务器', '正在请求资源');
-    const fetchUrl = bustCache ? encUrl(url) : url;
-    const res = await fetch(fetchUrl, { cache: bustCache ? 'no-store' : 'default' });
+    var fetchUrl = bustCache ? encUrl(url) : url;
+    var res = await fetch(fetchUrl, { cache: bustCache ? 'no-store' : 'default' });
     if (!res.ok) throw new Error('无法加载 ' + url);
-    const bytes = await readResponseBytes(res, onProgress, p0, p1);
-    report(onProgress, p1, '解析数据', '整理加密包');
-    const text = new TextDecoder().decode(bytes);
-    return JSON.parse(text);
+    var mid = p0 + (p1 - p0) * 0.82;
+    var bytes = await readResponseBytes(res, onProgress, p0, mid);
+    report(onProgress, mid + (p1 - mid) * 0.3, '解析数据', '整理加密包…');
+    if (global.LoveLoader && LoveLoader.startPulse) LoveLoader.startPulse(mid + (p1 - mid) * 0.6, '解析数据', '正在解析加密包…');
+    await yieldToUI();
+    var text = new TextDecoder().decode(bytes);
+    report(onProgress, mid + (p1 - mid) * 0.7, '解析数据', '校验格式…');
+    await yieldToUI();
+    var parsed = JSON.parse(text);
+    if (global.LoveLoader && LoveLoader.stopPulse) LoveLoader.stopPulse();
+    report(onProgress, p1, '解析完成', '加密包已就绪');
+    return parsed;
   }
 
   async function loadMeta(onProgress) {
@@ -139,16 +168,22 @@
   }
 
   async function decryptPayload(key, payload, onProgress, p0, p1) {
-    report(onProgress, p0, 'AES 解密中', '正在解锁内容');
-    const iv = b64ToBytes(payload.iv);
-    report(onProgress, (p0 + p1) / 2, 'AES 解密中', '校验完整性');
-    const ct = b64ToBytes(payload.ct);
+    report(onProgress, p0, 'AES 解密', '准备密钥…');
+    await yieldToUI();
+    var iv = b64ToBytes(payload.iv);
+    report(onProgress, p0 + (p1 - p0) * 0.25, 'AES 解密', '读取密文…');
+    await yieldToUI();
+    var ct = b64ToBytes(payload.ct);
+    report(onProgress, p0 + (p1 - p0) * 0.45, 'AES 解密', '正在解锁 (' + formatBytes(ct.length) + ')…');
+    if (global.LoveLoader && LoveLoader.startPulse) LoveLoader.startPulse(p0 + (p1 - p0) * 0.85, 'AES 解密', '请稍候，大文件解密中…');
+    await yieldToUI();
     try {
-      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+      var plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct);
+      if (global.LoveLoader && LoveLoader.stopPulse) LoveLoader.stopPulse();
       report(onProgress, p1, '解密完成', '内容已解锁');
       return new Uint8Array(plain);
     } catch (e) {
-      const err = new Error('解密失败，请退出后重新登录');
+      var err = new Error('解密失败，请退出后重新登录');
       err.code = 'DECRYPT_FAILED';
       err.cause = e;
       throw err;
@@ -426,24 +461,29 @@
   async function ensureViewerCached(legacyPath, onProgress) {
     var vid = PATH_TO_SHORT[legacyPath];
     if (!vid) throw new Error('未知页面');
+    report(onProgress, 8, '读取缓存', '检查本地存储…');
+    await yieldToUI();
     var cached = await idbGet(vid);
     if (cached) {
-      report(onProgress, 100, '读取缓存', '秒开');
+      report(onProgress, 100, '读取缓存', '本地秒开');
       return { vid: vid, bytes: cached };
     }
     var bytes = await getDecryptedBytes(legacyPath, onProgress);
     if (!bytes) return null;
+    report(onProgress, 90, '本地缓存', '正在保存 (' + formatBytes(bytes.length) + ')…');
+    await yieldToUI();
     await idbSet(vid, bytes);
+    report(onProgress, 97, '本地缓存', '保存完成');
     return { vid: vid, bytes: bytes };
   }
 
   async function openInViewer(legacyPath, title, onProgress) {
     title = title || TITLE_MAP[legacyPath] || '内容';
     sessionStorage.setItem('love_viewer_title', title);
-    report(onProgress, 96, '准备页面', '微信浏览器优化模式');
     var info = await ensureViewerCached(legacyPath, onProgress);
     if (!info) return null;
-    report(onProgress, 100, '跳转', '正在打开');
+    report(onProgress, 100, '跳转', '正在打开页面…');
+    await yieldToUI();
     location.href = 'viewer.html?v=' + encodeURIComponent(info.vid);
     return info;
   }
@@ -452,16 +492,29 @@
     var legacyPath = VIEWER_SHORT[vid];
     if (!legacyPath) throw new Error('无效的页面参数');
     var title = sessionStorage.getItem('love_viewer_title') || TITLE_MAP[legacyPath] || '';
+    LoveLoader.set(10, '加载', '读取本地缓存…');
+    await yieldToUI();
     var bytes = await idbGet(vid);
     if (!bytes) {
+      LoveLoader.set(15, '解密', '首次加载，正在解密…');
       bytes = await getDecryptedBytes(legacyPath, function (p, s, d) {
-        LoveLoader.set(Math.min(90, p), s, d);
+        LoveLoader.set(Math.min(85, p), s, d);
       });
-      if (bytes) await idbSet(vid, bytes);
+      if (bytes) {
+        LoveLoader.set(88, '缓存', '正在保存…');
+        await yieldToUI();
+        await idbSet(vid, bytes);
+      }
+    } else {
+      LoveLoader.set(55, '加载', '已从缓存读取 (' + formatBytes(bytes.length) + ')');
     }
     if (!bytes) throw new Error('内容为空');
-    LoveLoader.set(95, '渲染', '正在显示');
+    await yieldToUI();
+    LoveLoader.set(92, '渲染', '正在解码页面…');
+    await yieldToUI();
     var html = new TextDecoder().decode(bytes);
+    LoveLoader.set(96, '渲染', '正在显示内容…');
+    await yieldToUI();
     var backBar =
       '<div id="loveViewerBack" style="position:sticky;top:0;z-index:999999;' +
       'padding:max(10px,env(safe-area-inset-top)) 14px 10px;background:rgba(255,245,247,.96);' +
@@ -472,7 +525,9 @@
       'font-size:14px;font-weight:600;">← 返回</a>' +
       '<span style="font-size:14px;color:#7A6B7A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
       (title.replace(/</g, '&lt;')) + '</span></div>';
-    LoveLoader.hide(120);
+    LoveLoader.set(100, '完成', '欢迎查看');
+    LoveLoader.hide(100);
+    await yieldToUI();
     document.open('text/html', 'replace');
     document.write(backBar + html);
     document.close();

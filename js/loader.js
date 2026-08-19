@@ -106,10 +106,27 @@
   }
 
   let hideTimer = null;
+  let pulseTimer = null;
   let current = 0;
+
+  function stopPulse() {
+    if (pulseTimer) {
+      clearInterval(pulseTimer);
+      pulseTimer = null;
+    }
+  }
+
+  function startPulse(maxPct, stage, sub) {
+    stopPulse();
+    maxPct = maxPct == null ? 96 : maxPct;
+    pulseTimer = setInterval(function () {
+      if (current < maxPct) set(current + 1, stage, sub);
+    }, 450);
+  }
 
   function show(titleText) {
     const root = ensureRoot();
+    stopPulse();
     if (hideTimer) {
       clearTimeout(hideTimer);
       hideTimer = null;
@@ -142,6 +159,7 @@
   }
 
   function hide(delay) {
+    stopPulse();
     const root = ensureRoot();
     set(100, '完成', '欢迎回来');
     hideTimer = setTimeout(function () {
@@ -151,6 +169,7 @@
   }
 
   function fail(msg) {
+    stopPulse();
     set(current, '失败', msg || '加载失败，请重试');
     hideTimer = setTimeout(function () {
       const root = document.getElementById(ROOT_ID);
@@ -158,5 +177,5 @@
     }, 1200);
   }
 
-  global.LoveLoader = { show, set, pulseToward, hide, fail };
+  global.LoveLoader = { show, set, pulseToward, startPulse, stopPulse, hide, fail };
 })(window);
