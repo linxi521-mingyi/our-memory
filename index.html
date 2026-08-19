@@ -381,8 +381,20 @@ section { position: relative; z-index: 1; }
   transition: all 0.2s;
 }
 .modal-close:hover, .modal-open-tab:hover { background: rgba(255, 107, 157, 0.1); color: var(--rose-deep); }
-.modal-body { flex: 1; overflow: hidden; min-height: 0; -webkit-overflow-scrolling: touch; }
-.modal-body iframe { width: 100%; height: 100%; border: none; display: block; }
+.modal-body { flex: 1; overflow: hidden; min-height: 0; -webkit-overflow-scrolling: touch; position: relative; }
+.modal-body iframe { width: 100%; height: 100%; border: none; display: block; background: #f5f5f5; }
+.modal-loading {
+  position: absolute; inset: 0; z-index: 2;
+  display: none; align-items: center; justify-content: center; flex-direction: column;
+  background: #f5f5f5; color: #888; font-size: 14px; gap: 12px;
+}
+.modal-loading.show { display: flex; }
+.modal-spinner {
+  width: 40px; height: 40px; border: 3px solid #eee;
+  border-top-color: var(--rose-deep); border-radius: 50%;
+  animation: modalSpin .75s linear infinite;
+}
+@keyframes modalSpin { to { transform: rotate(360deg); } }
 /* 图片灯箱 */
 .lightbox {
   position: fixed; inset: 0; background: rgba(0,0,0,0.92);
@@ -642,7 +654,10 @@ section { position: relative; z-index: 1; }
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
     </div>
-    <div class="modal-body"><iframe id="modalFrame" src="about:blank" title="内容预览" allow="fullscreen"></iframe></div>
+    <div class="modal-body">
+      <div class="modal-loading" id="modalLoading"><div class="modal-spinner"></div><span id="modalLoadingText">正在加载…</span></div>
+      <iframe id="modalFrame" src="about:blank" title="内容预览" allow="fullscreen"></iframe>
+    </div>
   </div>
 </div>
 
@@ -844,15 +859,35 @@ for (let i = 0; i < heartCount; i++) {
 // ============ Modal (decrypt on demand) ============
 let currentModalPath = '';
 let currentModalBlob = null;
+let modalLoadToken = 0;
+
+function showModalLoading(text) {
+  var el = document.getElementById('modalLoading');
+  var t = document.getElementById('modalLoadingText');
+  if (t && text) t.textContent = text;
+  if (el) el.classList.add('show');
+}
+function hideModalLoading() {
+  var el = document.getElementById('modalLoading');
+  if (el) el.classList.remove('show');
+}
+
 async function openModal(path, title) {
+  var samePath = currentModalPath === path && currentModalBlob;
   currentModalPath = path;
   title = title || (LoveCrypto.TITLE_MAP && LoveCrypto.TITLE_MAP[path]) || '内容';
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalOverlay').classList.add('active');
   document.body.style.overflow = 'hidden';
   const frame = document.getElementById('modalFrame');
-  frame.removeAttribute('src');
-  frame.src = 'about:blank';
+  var token = ++modalLoadToken;
+
+  if (samePath && frame.src === currentModalBlob) {
+    hideModalLoading();
+    return;
+  }
+
+  showModalLoading('正在解密…');
   LoveLoader.show(title || '解密加载');
   try {
     const opened = await LoveCrypto.openDecryptedHtml(path, {
@@ -860,11 +895,28 @@ async function openModal(path, title) {
       title: title,
       onProgress: onLoadProgress,
     });
-    if (!opened || !opened.url) return;
+    if (!opened || !opened.url || token !== modalLoadToken) return;
     currentModalBlob = opened.url;
-    frame.src = opened.url;
+    showModalLoading(LoveCrypto.hasCachedHtml && LoveCrypto.hasCachedHtml(path) ? '正在打开（已缓存）…' : '正在渲染页面…');
+
+    await new Promise(function(resolve, reject) {
+      var done = false;
+      function finish(ok) {
+        if (done || token !== modalLoadToken) return;
+        done = true;
+        frame.onload = frame.onerror = null;
+        ok ? resolve() : reject(new Error('页面加载失败'));
+      }
+      frame.onload = function() { finish(true); };
+      frame.onerror = function() { finish(false); };
+      frame.src = opened.url;
+      setTimeout(function() { finish(true); }, 12000);
+    });
+
+    hideModalLoading();
     LoveLoader.hide();
   } catch (err) {
+    hideModalLoading();
     LoveLoader.fail((err && err.message) ? err.message : '解密失败');
     if (err && (err.code === 'DECRYPT_FAILED' || (err.message && err.message.indexOf('重新登录') >= 0))) {
       LoveCrypto.clearSession();
@@ -874,6 +926,7 @@ async function openModal(path, title) {
     }
   }
 }
+
 async function openTab(path) {
   var title = (LoveCrypto.TITLE_MAP && LoveCrypto.TITLE_MAP[path]) || '聊天记录';
   if (LoveCrypto.isMobileDevice && LoveCrypto.isMobileDevice()) {
@@ -909,10 +962,9 @@ function openModalInTab() {
 }
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modalOverlay')) return;
+  modalLoadToken++;
   document.getElementById('modalOverlay').classList.remove('active');
-  document.getElementById('modalFrame').src = '';
-  // Keep blob cached for faster reopen; do not revoke
-  currentModalBlob = null;
+  hideModalLoading();
   document.body.style.overflow = '';
 }
 

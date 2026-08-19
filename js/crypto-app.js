@@ -273,6 +273,9 @@
       /* non-fatal */
     }
     report(onProgress, 100, '完成', '正在进入…');
+    setTimeout(function () {
+      preloadChats();
+    }, 800);
     return key;
   }
 
@@ -325,7 +328,42 @@
     return target === 'modal' || (target === 'tab' && isMobileDevice());
   }
 
+  const CHAT_PATHS = [
+    '微信聊天记录导出/高铭怡聊天记录.html',
+    '抖音聊天记录导出/抖音聊天记录.html',
+  ];
+
+  function hasCachedHtml(legacyPath) {
+    return blobCache.has(legacyPath) || (ENC_MAP[legacyPath] && decryptCache.has(ENC_MAP[legacyPath]));
+  }
+
   const blobUrls = new Set();
+
+  async function preloadChats(onProgress) {
+    if (!isMobileDevice()) return;
+    var key = await getSessionKey();
+    if (!key) return;
+    for (var i = 0; i < CHAT_PATHS.length; i++) {
+      var p = CHAT_PATHS[i];
+      if (blobCache.has(p) || decryptCache.has(ENC_MAP[p])) continue;
+      try {
+        await fetchAndDecrypt(key, ENC_MAP[p], function (pct, stage, detail) {
+          if (typeof onProgress === 'function') {
+            onProgress(p, pct, stage, detail);
+          }
+        });
+        var bytes = decryptCache.get(ENC_MAP[p]);
+        if (bytes && !blobCache.has(p)) {
+          var blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
+          var url = URL.createObjectURL(blob);
+          blobUrls.add(url);
+          blobCache.set(p, url);
+        }
+      } catch (e) {
+        /* non-fatal preload */
+      }
+    }
+  }
 
   function revokeBlob(url) {
     if (url && blobUrls.has(url)) {
@@ -396,6 +434,8 @@
     ENC_MAP,
     TITLE_MAP,
     isMobileDevice,
+    preloadChats,
+    hasCachedHtml,
     revokeBlob,
   };
 })(window);
