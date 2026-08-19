@@ -27,10 +27,13 @@
 body {
   font-family: 'Georgia', 'Noto Serif SC', 'Songti SC', 'Microsoft YaHei', serif;
   background: var(--bg-grad);
-  background-attachment: fixed;
+  background-attachment: scroll;
   color: var(--ink);
   line-height: 1.8;
   overflow-x: hidden;
+}
+@media (min-width: 900px) {
+  body { background-attachment: fixed; }
 }
 .heart-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
 .heart-bg span {
@@ -220,17 +223,41 @@ section { position: relative; z-index: 1; }
 .timeline-img {
   width: 100%; aspect-ratio: 1; object-fit: cover;
   border-radius: 10px; cursor: pointer;
-  transition: all 0.3s;
+  transition: transform 0.2s, box-shadow 0.2s;
   border: 2px solid rgba(255,255,255,0.6);
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  background: rgba(255, 107, 157, 0.06);
 }
 .timeline-img:hover {
   transform: scale(1.03);
   box-shadow: 0 4px 16px rgba(233, 30, 99, 0.2);
 }
+.timeline-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
 .timeline-img-count {
   font-size: 11px; color: var(--muted); margin-top: 6px;
   display: flex; align-items: center; gap: 4px;
+}
+.timeline-video-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 180px; cursor: pointer; color: #fff;
+  background: linear-gradient(135deg, #3a2a40, #2a1a30);
+  font-size: 14px;
+}
+.timeline-video-placeholder:hover { background: linear-gradient(135deg, #4a3a50, #3a2a40); }
+.decrypt-toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  background: rgba(74, 59, 82, 0.92); color: #fff;
+  padding: 10px 18px; border-radius: 999px; font-size: 13px;
+  z-index: 3000; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s; white-space: nowrap;
+}
+.decrypt-toast.show { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .heart-bg span, .hero-heart, .scroll-hint { animation: none !important; }
+  .fade-in { opacity: 1; transform: none; transition: none; }
 }
 /* 时间线视频 */
 .timeline-video-wrapper {
@@ -677,27 +704,50 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'ArrowRight') navLightbox(1);
 });
 
+function loadBilibili(el, bvid) {
+  const wrap = el.parentElement;
+  wrap.innerHTML = `<iframe src="https://player.bilibili.com/player.html?bvid=${bvid}&page=1&autoplay=0&danmaku=0&high_quality=1"
+    scrolling="no" border="0" frameborder="no" framespacing="0"
+    allowfullscreen="true" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+    class="timeline-bilibili" loading="lazy"></iframe>`;
+}
+
+function showDecryptToast(msg) {
+  let el = document.getElementById('decryptToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'decryptToast';
+    el.className = 'decrypt-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideDecryptToast() {
+  const el = document.getElementById('decryptToast');
+  if (el) el.classList.remove('show');
+}
+
 // ============ 渲染时间线 ============
 function renderTimeline(filter = 'all') {
   const container = document.getElementById('timelineContainer');
-  container.innerHTML = '';
+  const frag = document.createDocumentFragment();
   let currentYear = '';
-  
+
   timelineData.forEach((item) => {
     if (filter !== 'all' && item.year !== filter) return;
-    
+
     if (item.year !== currentYear) {
       currentYear = item.year;
       const divider = document.createElement('div');
       divider.className = 'year-divider fade-in';
       divider.innerHTML = `<span>${currentYear}年</span>`;
-      container.appendChild(divider);
+      frag.appendChild(divider);
     }
-    
+
     const div = document.createElement('div');
     div.className = 'timeline-item fade-in';
-    
-    // 查找该日期的图片
+
     const imgs = imageMap[item.date] || [];
     let galleryHtml = '';
     if (imgs.length > 0) {
@@ -705,16 +755,15 @@ function renderTimeline(filter = 'all') {
       if (imgs.length === 1) cls = 'single';
       else if (imgs.length === 2) cls = 'double';
       else if (imgs.length === 3) cls = 'triple';
-      
-      let imgsHtml = imgs.map((src, i) => 
-        `<img class="timeline-img" src="${src}" alt="" onclick="openLightbox(${JSON.stringify(imgs).replace(/"/g,'&quot;')},${i})" onerror="this.style.display='none'">`
+
+      const imgsHtml = imgs.map((src, i) =>
+        `<img class="timeline-img" src="${src}" alt="" loading="lazy" decoding="async" onclick="openLightbox(${JSON.stringify(imgs).replace(/"/g,'&quot;')},${i})" onerror="this.style.display='none'">`
       ).join('');
-      
+
       galleryHtml = `<div class="timeline-gallery ${cls}">${imgsHtml}</div>
         <div class="timeline-img-count">📷 ${imgs.length}张照片 · 点击放大查看</div>`;
     }
-    
-    // 查找该日期的视频
+
     const videos = videoMap[item.date] || [];
     let videoHtml = '';
     if (videos.length > 0) {
@@ -722,15 +771,12 @@ function renderTimeline(filter = 'all') {
         <div class="timeline-video-wrapper">
           <div class="timeline-video-label">🎬 ${v.title} · 珍贵视频回忆</div>
           <div class="timeline-video-container">
-            <iframe src="https://player.bilibili.com/player.html?bvid=${v.bvid}&page=1&autoplay=0&danmaku=0&high_quality=1" 
-                    scrolling="no" border="0" frameborder="no" framespacing="0" 
-                    allowfullscreen="true" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox" class="timeline-bilibili">
-            </iframe>
+            <div class="timeline-video-placeholder" onclick="loadBilibili(this,'${v.bvid}')">▶ 点击加载视频</div>
           </div>
         </div>
       `).join('');
     }
-    
+
     div.innerHTML = `
       <div class="timeline-dot"></div>
       <div class="timeline-date">
@@ -744,17 +790,22 @@ function renderTimeline(filter = 'all') {
         ${videoHtml}
       </div>
     `;
-    container.appendChild(div);
+    frag.appendChild(div);
   });
-  
-  setTimeout(() => {
-    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
-  }, 50);
+
+  container.innerHTML = '';
+  container.appendChild(frag);
+
+  requestAnimationFrame(() => {
+    container.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+  });
 }
 
 // ============ 渲染美好回忆 ============
 function renderMemories() {
   const grid = document.getElementById('memoryGrid');
+  grid.innerHTML = '';
+  const frag = document.createDocumentFragment();
   memoryData.forEach(item => {
     const div = document.createElement('div');
     div.className = 'memory-card fade-in';
@@ -763,8 +814,9 @@ function renderMemories() {
       <div class="memory-title">${item.title}</div>
       <div class="memory-desc">${item.desc}</div>
     `;
-    grid.appendChild(div);
+    frag.appendChild(div);
   });
+  grid.appendChild(frag);
 }
 
 // ============ 年份筛选 ============
@@ -791,16 +843,17 @@ function updateCounter() {
 updateCounter();
 setInterval(updateCounter, 1000);
 
-// ============ 飘心 ============
-const heartEmojis = ['❤', '💕', '💗', '💓', '💖', '🌹', '✨', '🌸'];
+// ============ 飘心（减少数量，降低滚动时卡顿） ============
+const heartEmojis = ['❤', '💕', '💗', '💖', '✨'];
 const heartBg = document.getElementById('heartBg');
-for (let i = 0; i < 25; i++) {
+const heartCount = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 8;
+for (let i = 0; i < heartCount; i++) {
   const span = document.createElement('span');
   span.textContent = heartEmojis[Math.floor(Math.random() * heartEmojis.length)];
   span.style.left = Math.random() * 100 + '%';
-  span.style.fontSize = (12 + Math.random() * 18) + 'px';
-  span.style.animationDuration = (8 + Math.random() * 14) + 's';
-  span.style.animationDelay = (Math.random() * 18) + 's';
+  span.style.fontSize = (12 + Math.random() * 14) + 'px';
+  span.style.animationDuration = (10 + Math.random() * 12) + 's';
+  span.style.animationDelay = (Math.random() * 10) + 's';
   heartBg.appendChild(span);
 }
 
@@ -814,21 +867,26 @@ async function openModal(path, title) {
   document.body.style.overflow = 'hidden';
   const frame = document.getElementById('modalFrame');
   frame.src = '';
+  showDecryptToast('正在解密加载…');
   try {
-    if (currentModalBlob) LoveCrypto.revokeBlob(currentModalBlob);
     const opened = await LoveCrypto.openDecryptedHtml(path, { target: 'none' });
     currentModalBlob = opened.url;
     frame.src = opened.url;
   } catch (err) {
     alert('解密失败：' + (err && err.message ? err.message : err));
     closeModal();
+  } finally {
+    hideDecryptToast();
   }
 }
 async function openTab(path) {
+  showDecryptToast('正在解密打开…（首次可能稍慢）');
   try {
     await LoveCrypto.openDecryptedHtml(path, { target: 'tab' });
   } catch (err) {
     alert('解密失败：' + (err && err.message ? err.message : err));
+  } finally {
+    hideDecryptToast();
   }
 }
 function openModalInTab() {
@@ -838,10 +896,8 @@ function closeModal(e) {
   if (e && e.target !== document.getElementById('modalOverlay')) return;
   document.getElementById('modalOverlay').classList.remove('active');
   document.getElementById('modalFrame').src = '';
-  if (currentModalBlob) {
-    LoveCrypto.revokeBlob(currentModalBlob);
-    currentModalBlob = null;
-  }
+  // Keep blob cached for faster reopen; do not revoke
+  currentModalBlob = null;
   document.body.style.overflow = '';
 }
 
@@ -869,12 +925,18 @@ const observer = new IntersectionObserver(function(entries) {
   });
 }, { threshold: 0.08 });
 
-// ============ 返回顶部 ============
+// ============ 返回顶部（节流） ============
+let scrollTicking = false;
 window.addEventListener('scroll', function() {
-  const btn = document.getElementById('backTop');
-  if (window.scrollY > 500) btn.classList.add('show');
-  else btn.classList.remove('show');
-});
+  if (scrollTicking) return;
+  scrollTicking = true;
+  requestAnimationFrame(function() {
+    const btn = document.getElementById('backTop');
+    if (window.scrollY > 500) btn.classList.add('show');
+    else btn.classList.remove('show');
+    scrollTicking = false;
+  });
+}, { passive: true });
 
 // ============ ESC关闭弹窗 ============
 document.addEventListener('keydown', function(e) {
@@ -889,7 +951,7 @@ async function bootEncryptedContent() {
       location.replace('login.html');
       return;
     }
-    const content = await LoveCrypto.fetchAndDecryptJson(key, 'enc/content.enc');
+    const content = await LoveCrypto.loadSiteContent(key);
     imageMap = content.imageMap || {};
     videoMap = content.videoMap || {};
     timelineData = content.timelineData || [];

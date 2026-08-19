@@ -3,6 +3,12 @@
   const META_URL = 'enc/meta.json';
   const KEY_STORAGE = 'love_aes_key';
   const LOGIN_FLAG = 'love_logged_in';
+  const CONTENT_CACHE_KEY = 'love_content_cache_v1';
+
+  /** In-memory caches for this tab (survives SPA-like revisits in same page). */
+  const metaCache = { value: null, promise: null };
+  const decryptCache = new Map(); // encPath -> Uint8Array
+  const blobCache = new Map(); // legacyPath -> objectURL
 
   function b64ToBytes(b64) {
     const bin = atob(b64);
@@ -21,9 +27,21 @@
   }
 
   async function loadMeta() {
-    const res = await fetch(META_URL + '?t=' + Date.now());
-    if (!res.ok) throw new Error('无法加载加密元数据');
-    return res.json();
+    if (metaCache.value) return metaCache.value;
+    if (metaCache.promise) return metaCache.promise;
+    metaCache.promise = fetch(META_URL, { cache: 'force-cache' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('无法加载加密元数据');
+        return res.json();
+      })
+      .then(function (meta) {
+        metaCache.value = meta;
+        return meta;
+      })
+      .finally(function () {
+        metaCache.promise = null;
+      });
+    return metaCache.promise;
   }
 
   async function deriveKey(password, meta) {
@@ -72,10 +90,16 @@
   }
 
   async function fetchAndDecrypt(key, encPath) {
-    const res = await fetch(encPath + '?t=' + Date.now());
+    if (decryptCache.has(encPath)) {
+      return decryptCache.get(encPath);
+    }
+    // Allow browser HTTP cache — do NOT bust with Date.now()
+    const res = await fetch(encPath, { cache: 'force-cache' });
     if (!res.ok) throw new Error('无法加载 ' + encPath);
     const payload = await res.json();
-    return decryptPayload(key, payload);
+    const bytes = await decryptPayload(key, payload);
+    decryptCache.set(encPath, bytes);
+    return bytes;
   }
 
   async function fetchAndDecryptText(key, encPath) {
@@ -96,7 +120,13 @@
   function clearSession() {
     sessionStorage.removeItem(KEY_STORAGE);
     sessionStorage.removeItem(LOGIN_FLAG);
+    sessionStorage.removeItem(CONTENT_CACHE_KEY);
     localStorage.removeItem(LOGIN_FLAG);
+    decryptCache.clear();
+    blobCache.forEach(function (url) {
+      try { URL.revokeObjectURL(url); } catch (e) {}
+    });
+    blobCache.clear();
   }
 
   function getSessionKeyB64() {
@@ -123,7 +153,33 @@
     }
     const raw = await exportRawKey(key);
     saveSessionKey(raw);
+
+    // Prefetch main content so index.html opens faster
+    try {
+      const content = await fetchAndDecryptJson(key, 'enc/content.enc');
+      sessionStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(content));
+    } catch (e) {
+      /* non-fatal */
+    }
     return key;
+  }
+
+  async function loadSiteContent(key) {
+    const cached = sessionStorage.getItem(CONTENT_CACHE_KEY);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        sessionStorage.removeItem(CONTENT_CACHE_KEY);
+      }
+    }
+    const content = await fetchAndDecryptJson(key, 'enc/content.enc');
+    try {
+      sessionStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(content));
+    } catch (e) {
+      /* quota — ignore */
+    }
+    return content;
   }
 
   const ENC_MAP = {
@@ -152,26 +208,33 @@
       location.replace('login.html');
       return null;
     }
-    const bytes = await fetchAndDecrypt(key, encPath);
-    const blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    blobUrls.add(url);
+
+    let url = blobCache.get(legacyPath);
+    if (!url) {
+      const bytes = await fetchAndDecrypt(key, encPath);
+      const blob = new Blob([bytes], { type: 'text/html; charset=utf-8' });
+      url = URL.createObjectURL(blob);
+      blobUrls.add(url);
+      blobCache.set(legacyPath, url);
+    }
+
     if (target === 'tab') {
       window.open(url, '_blank');
-      setTimeout(() => revokeBlob(url), 120_000);
     }
-    return { url, title, revoke: () => revokeBlob(url) };
+    return { url, title, revoke: function () { /* keep cached for reuse */ } };
   }
 
   global.LoveCrypto = {
     META_URL,
     KEY_STORAGE,
+    CONTENT_CACHE_KEY,
     loadMeta,
     deriveKey,
     unlockWithPassword,
     getSessionKey,
     getSessionKeyB64,
     clearSession,
+    loadSiteContent,
     fetchAndDecryptText,
     fetchAndDecryptJson,
     fetchAndDecrypt,
