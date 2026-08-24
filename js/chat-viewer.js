@@ -51,18 +51,45 @@
     if (el) el.style.display = 'none';
   }
 
+  function wechatAvatarHtml(isMe) {
+    if (isMe) {
+      return '<div class="lcv-wx-avatar lcv-wx-avatar--me" aria-hidden="true">我</div>';
+    }
+    return '<div class="lcv-wx-avatar lcv-wx-avatar--her" aria-hidden="true">怡</div>';
+  }
+
   function headerHtml(pack, platform) {
     var tag = platform === 'wechat' ? 'WECHAT · 微信' : 'DOUYIN · 抖音';
+    var count = (pack.m || []).length;
+    var searchBlock =
+      '<div class="lcv-search-wrap">' +
+        '<span class="lcv-search-icon">🔍</span>' +
+        '<input class="lcv-search" id="lcvSearch" type="search" placeholder="搜索消息内容…" autocomplete="off">' +
+      '</div>' +
+      '<div class="lcv-stats" id="lcvStats">共 ' + count + ' 条</div>';
+
+    if (platform === 'wechat') {
+      return (
+        '<div class="lcv-hdr lcv-hdr--wechat">' +
+          '<div class="lcv-wx-hdr-top">' +
+            '<div class="lcv-wx-hdr-icon">💬</div>' +
+            '<div class="lcv-wx-hdr-text">' +
+              '<span class="lcv-hdr__tag">' + tag + '</span>' +
+              '<h1>' + esc(pack.title || '聊天记录') + '</h1>' +
+            '</div>' +
+          '</div>' +
+          (pack.info ? '<div class="lcv-wx-chips"><span class="lcv-wx-chip lcv-wx-chip--accent">💕 ' + esc(pack.info) + '</span><span class="lcv-wx-chip">📨 ' + count + ' 条消息</span></div>' : '<div class="lcv-wx-chips"><span class="lcv-wx-chip lcv-wx-chip--accent">💕 我们的微信</span><span class="lcv-wx-chip">📨 ' + count + ' 条消息</span></div>') +
+          searchBlock +
+        '</div>'
+      );
+    }
+
     return (
       '<div class="lcv-hdr">' +
         '<span class="lcv-hdr__tag">' + tag + '</span>' +
         '<h1>' + esc(pack.title || '聊天记录') + '</h1>' +
         (pack.info ? '<div class="info">' + esc(pack.info) + '</div>' : '') +
-        '<div class="lcv-search-wrap">' +
-          '<span class="lcv-search-icon">🔍</span>' +
-          '<input class="lcv-search" id="lcvSearch" type="search" placeholder="搜索消息内容…" autocomplete="off">' +
-        '</div>' +
-        '<div class="lcv-stats" id="lcvStats">共 ' + (pack.m || []).length + ' 条</div>' +
+        searchBlock +
       '</div>'
     );
   }
@@ -116,8 +143,14 @@
         }
         html +=
           '<div class="lcv-msg ' + (isMe ? 'self' : 'other') + '">' +
-            '<div class="lcv-time">' + esc(timeHtml) + '</div>' +
-            '<div class="lcv-bubble">' + bubble + '</div>' +
+            '<div class="lcv-wx-row">' +
+              (isMe ? '' : wechatAvatarHtml(false)) +
+              '<div class="lcv-wx-body">' +
+                '<div class="lcv-time">' + esc(timeHtml) + '</div>' +
+                '<div class="lcv-bubble">' + bubble + '</div>' +
+              '</div>' +
+              (isMe ? wechatAvatarHtml(true) : '') +
+            '</div>' +
           '</div>';
       }
       box.insertAdjacentHTML('beforeend', html);
