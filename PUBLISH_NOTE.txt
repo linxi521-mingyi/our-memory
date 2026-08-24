@@ -1,0 +1,9 @@
+publish-safe
+
+Safe to push to GitHub / GitHub Pages.
+Does NOT include .encrypt-password, private/, or plaintext chat folders.
+
+Login username: GMY&HMZ
+Password: open local .encrypt-password (never commit it)
+
+Prefer a NEW private repo to wipe old plaintext history.

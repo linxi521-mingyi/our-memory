@@ -1,0 +1,16 @@
+# Local secrets / plaintext sources (never publish)
+.encrypt-password
+private/
+publish-safe/
+
+# Sensitive plaintext folders (keep local; only enc/*.enc goes to GitHub)
+微信聊天记录导出/
+抖音聊天记录导出/
+性格分析报告/
+AI智能体/
+
+# Optional local tooling caches
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "kdf": "PBKDF2",
+  "hash": "SHA-256",
+  "iterations": 100000,
+  "salt": "ukwEoVQBZ7M68sPaQBScJQ==",
+  "algo": "AES-256-GCM",
+  "keyLen": 32,
+  "encVersion": 1,
+  "builtAt": "2026-08-24T15:26:05Z"
+}
