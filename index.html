@@ -170,7 +170,35 @@ section { position: relative; z-index: 1; }
   color: #fff; border-color: transparent;
   box-shadow: 0 4px 16px rgba(233, 30, 99, 0.25);
 }
-.timeline-section { padding: 20px 0 80px; }
+.timeline-section {
+  padding: 20px 0 80px;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255, 107, 157, 0.08), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 90% 60%, rgba(181, 126, 220, 0.06), transparent 60%);
+}
+.timeline-toolbar {
+  max-width: 860px; margin: 0 auto 28px; padding: 0 4px;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+}
+.timeline-search-wrap { flex: 1; min-width: 220px; position: relative; }
+.timeline-search {
+  width: 100%; padding: 12px 18px 12px 42px;
+  border: 1.5px solid var(--border); border-radius: 999px;
+  background: var(--surface-strong); font-size: 14px; color: var(--ink);
+  outline: none; transition: all 0.25s; font-family: inherit;
+  box-shadow: var(--shadow);
+}
+.timeline-search:focus {
+  border-color: var(--rose); box-shadow: 0 0 0 4px rgba(255, 107, 157, 0.12);
+}
+.timeline-search::placeholder { color: var(--muted); }
+.timeline-search-icon {
+  position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+  font-size: 14px; color: var(--muted); pointer-events: none;
+}
+.timeline-result-hint {
+  font-size: 12px; color: var(--muted); white-space: nowrap;
+}
 .timeline { position: relative; max-width: 860px; margin: 0 auto; padding-left: 50px; }
 .timeline::before {
   content: ''; position: absolute; left: 14px; top: 0; bottom: 0;
@@ -185,7 +213,11 @@ section { position: relative; z-index: 1; }
   font-size: 15px; font-weight: 700; letter-spacing: 2px;
   box-shadow: 0 4px 16px rgba(233, 30, 99, 0.2);
 }
-.timeline-item { position: relative; margin-bottom: 32px; }
+.timeline-item {
+  position: relative; margin-bottom: 32px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
 .timeline-dot {
   position: absolute; left: -42px; top: 6px;
   width: 16px; height: 16px; border-radius: 50%;
@@ -212,8 +244,18 @@ section { position: relative; z-index: 1; }
   box-shadow: var(--shadow-hover); transform: translateY(-2px);
   border-color: rgba(255, 107, 157, 0.3);
 }
-.timeline-title { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
-.timeline-desc { font-size: 14px; color: var(--ink-soft); line-height: 1.9; }
+.timeline-title {
+  font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 8px;
+  line-height: 1.55;
+}
+.timeline-desc {
+  font-size: 14px; color: var(--ink-soft); line-height: 1.95;
+  white-space: pre-line;
+}
+.timeline-desc mark {
+  background: rgba(255, 235, 59, 0.35); color: inherit;
+  padding: 0 2px; border-radius: 3px;
+}
 /* 时间线图片画廊 */
 .timeline-gallery {
   display: grid; gap: 8px; margin-top: 14px;
@@ -234,9 +276,10 @@ section { position: relative; z-index: 1; }
   transform: scale(1.03);
   box-shadow: 0 4px 16px rgba(233, 30, 99, 0.2);
 }
-.timeline-item {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 240px;
+.timeline-empty {
+  text-align: center; padding: 48px 20px; color: var(--muted);
+  background: var(--surface); border-radius: var(--radius);
+  border: 1px dashed var(--border);
 }
 .timeline-img-count {
   font-size: 11px; color: var(--muted); margin-top: 6px;
@@ -540,9 +583,9 @@ section { position: relative; z-index: 1; }
   <div class="container">
     <div class="stats-grid">
       <div class="stat-card fade-in"><div class="stat-num" id="stat-days">0</div><div class="stat-label">在一起的天数</div></div>
-      <div class="stat-card fade-in"><div class="stat-num">96</div><div class="stat-label">时间记忆事件</div></div>
-      <div class="stat-card fade-in"><div class="stat-num">173</div><div class="stat-label">珍藏的照片</div></div>
-      <div class="stat-card fade-in"><div class="stat-num">4</div><div class="stat-label">珍贵视频回忆</div></div>
+      <div class="stat-card fade-in"><div class="stat-num" id="stat-events">—</div><div class="stat-label">时间记忆事件</div></div>
+      <div class="stat-card fade-in"><div class="stat-num" id="stat-photos">—</div><div class="stat-label">珍藏的照片</div></div>
+      <div class="stat-card fade-in"><div class="stat-num" id="stat-videos">—</div><div class="stat-label">珍贵视频回忆</div></div>
       <div class="stat-card fade-in"><div class="stat-num">82,010</div><div class="stat-label">双平台聊天消息</div></div>
       <div class="stat-card fade-in"><div class="stat-num">∞</div><div class="stat-label">永远的记忆</div></div>
     </div>
@@ -561,6 +604,13 @@ section { position: relative; z-index: 1; }
       <button class="year-btn" onclick="filterYear('2024',this)">2024年</button>
       <button class="year-btn" onclick="filterYear('2025',this)">2025年</button>
       <button class="year-btn" onclick="filterYear('2026',this)">2026年</button>
+    </div>
+    <div class="timeline-toolbar fade-in">
+      <div class="timeline-search-wrap">
+        <span class="timeline-search-icon">🔍</span>
+        <input type="search" class="timeline-search" id="timelineSearch" placeholder="搜索时间记忆：地点、关键词、日期…" autocomplete="off">
+      </div>
+      <div class="timeline-result-hint" id="timelineResultHint"></div>
     </div>
     <div class="timeline" id="timelineContainer"></div>
   </div>
@@ -639,7 +689,7 @@ section { position: relative; z-index: 1; }
 <footer class="footer">
   <p>黄梦召 & 高铭怡 · 2024.12.12 — 永远</p>
   <p style="margin-top:8px;">这份记忆用 <span class="footer-heart">❤</span> 保存 · 即使分开，回忆依然温暖</p>
-  <p style="margin-top:8px; font-size:12px; color:var(--muted);">本网站基于82,010条真实聊天记录、101件时间记忆、173张照片构建</p>
+  <p style="margin-top:8px; font-size:12px; color:var(--muted);" id="footerStats">本网站基于真实聊天记录与时间记忆构建</p>
 </footer>
 
 <button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
@@ -681,9 +731,44 @@ let videoMap = {};
 
 // ============ 时间线数据 ============
 let timelineData = [];
+let currentYearFilter = 'all';
+let timelineSearchQuery = '';
 
 // ============ 美好回忆数据 ============
 let memoryData = [];
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function highlightText(text, query) {
+  const safe = escHtml(text);
+  if (!query) return safe;
+  const q = escHtml(query);
+  const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+  return safe.replace(re, '<mark>$1</mark>');
+}
+
+function updateSiteStats(content) {
+  const stats = content.siteStats || {};
+  const events = stats.timelineEvents || timelineData.length;
+  const photos = stats.photos || Object.values(imageMap).reduce(function (n, arr) { return n + arr.length; }, 0);
+  const videos = stats.videos || Object.values(videoMap).reduce(function (n, arr) { return n + arr.length; }, 0);
+  const elEvents = document.getElementById('stat-events');
+  const elPhotos = document.getElementById('stat-photos');
+  const elVideos = document.getElementById('stat-videos');
+  const footer = document.getElementById('footerStats');
+  if (elEvents) elEvents.textContent = events;
+  if (elPhotos) elPhotos.textContent = photos;
+  if (elVideos) elVideos.textContent = videos;
+  if (footer) {
+    footer.textContent = '本网站基于82,010条真实聊天记录、' + events + '件时间记忆、' + photos + '张照片构建';
+  }
+}
 
 // ============ 灯箱状态 ============
 let lightboxImages = [];
@@ -728,19 +813,29 @@ function onLoadProgress(pct, stage, detail) {
 }
 
 // ============ 渲染时间线 ============
-function renderTimeline(filter = 'all') {
+function renderTimeline(filter = currentYearFilter, query = timelineSearchQuery) {
+  currentYearFilter = filter;
+  timelineSearchQuery = (query || '').trim();
   const container = document.getElementById('timelineContainer');
+  const hint = document.getElementById('timelineResultHint');
   const frag = document.createDocumentFragment();
   let currentYear = '';
+  let visibleCount = 0;
+  const q = timelineSearchQuery.toLowerCase();
 
   timelineData.forEach((item) => {
     if (filter !== 'all' && item.year !== filter) return;
+    if (q) {
+      const hay = (item.date + ' ' + item.title + ' ' + item.desc).toLowerCase();
+      if (hay.indexOf(q) < 0) return;
+    }
+    visibleCount += 1;
 
     if (item.year !== currentYear) {
       currentYear = item.year;
       const divider = document.createElement('div');
       divider.className = 'year-divider fade-in';
-      divider.innerHTML = `<span>${currentYear}年</span>`;
+      divider.innerHTML = '<span>' + escHtml(currentYear) + '年</span>';
       frag.appendChild(divider);
     }
 
@@ -755,48 +850,56 @@ function renderTimeline(filter = 'all') {
       else if (imgs.length === 2) cls = 'double';
       else if (imgs.length === 3) cls = 'triple';
 
-      const imgsHtml = imgs.map((src, i) =>
-        `<img class="timeline-img" src="${src}" alt="" loading="lazy" decoding="async" onclick="openLightbox(${JSON.stringify(imgs).replace(/"/g,'&quot;')},${i})" onerror="this.style.display='none'">`
-      ).join('');
+      const imgsHtml = imgs.map(function (src, i) {
+        return '<img class="timeline-img" src="' + escHtml(src) + '" alt="" loading="lazy" decoding="async" onclick="openLightbox(' + JSON.stringify(imgs).replace(/"/g, '&quot;') + ',' + i + ')" onerror="this.style.display=\'none\'">';
+      }).join('');
 
-      galleryHtml = `<div class="timeline-gallery ${cls}">${imgsHtml}</div>
-        <div class="timeline-img-count">📷 ${imgs.length}张照片 · 点击放大查看</div>`;
+      galleryHtml = '<div class="timeline-gallery ' + cls + '">' + imgsHtml + '</div>' +
+        '<div class="timeline-img-count">📷 ' + imgs.length + '张照片 · 点击放大查看</div>';
     }
 
     const videos = videoMap[item.date] || [];
     let videoHtml = '';
     if (videos.length > 0) {
-      videoHtml = videos.map(v => `
-        <div class="timeline-video-wrapper">
-          <div class="timeline-video-label">🎬 ${v.title} · 珍贵视频回忆</div>
-          <div class="timeline-video-container">
-            <div class="timeline-video-placeholder" onclick="loadBilibili(this,'${v.bvid}')">▶ 点击加载视频</div>
-          </div>
-        </div>
-      `).join('');
+      videoHtml = videos.map(function (v) {
+        return '<div class="timeline-video-wrapper">' +
+          '<div class="timeline-video-label">🎬 ' + escHtml(v.title) + ' · 珍贵视频回忆</div>' +
+          '<div class="timeline-video-container">' +
+          '<div class="timeline-video-placeholder" onclick="loadBilibili(this,\'' + escHtml(v.bvid) + '\')">▶ 点击加载视频</div>' +
+          '</div></div>';
+      }).join('');
     }
 
-    div.innerHTML = `
-      <div class="timeline-dot"></div>
-      <div class="timeline-date">
-        <span class="month-tag">${item.month}月</span>
-        ${item.date}
-      </div>
-      <div class="timeline-content">
-        <div class="timeline-title">${item.title}</div>
-        <div class="timeline-desc">${item.desc}</div>
-        ${galleryHtml}
-        ${videoHtml}
-      </div>
-    `;
+    div.innerHTML =
+      '<div class="timeline-dot"></div>' +
+      '<div class="timeline-date">' +
+        '<span class="month-tag">' + escHtml(item.month) + '月</span>' +
+        escHtml(item.date) +
+      '</div>' +
+      '<div class="timeline-content">' +
+        '<div class="timeline-title">' + highlightText(item.title, timelineSearchQuery) + '</div>' +
+        '<div class="timeline-desc">' + highlightText(item.desc, timelineSearchQuery) + '</div>' +
+        galleryHtml +
+        videoHtml +
+      '</div>';
     frag.appendChild(div);
   });
 
   container.innerHTML = '';
-  container.appendChild(frag);
+  if (visibleCount === 0) {
+    container.innerHTML = '<div class="timeline-empty fade-in">没有找到匹配的记忆，换个关键词试试？</div>';
+  } else {
+    container.appendChild(frag);
+  }
 
-  requestAnimationFrame(() => {
-    container.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+  if (hint) {
+    hint.textContent = q
+      ? ('找到 ' + visibleCount + ' 条相关记忆')
+      : (filter === 'all' ? ('共 ' + timelineData.length + ' 条时间记忆') : ('' + filter + '年 · ' + visibleCount + ' 条'));
+  }
+
+  requestAnimationFrame(function () {
+    container.querySelectorAll('.fade-in').forEach(function (el) { observer.observe(el); });
   });
 }
 
@@ -820,10 +923,23 @@ function renderMemories() {
 
 // ============ 年份筛选 ============
 function filterYear(year, btn) {
-  document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.year-btn').forEach(function (b) { b.classList.remove('active'); });
   btn.classList.add('active');
-  renderTimeline(year);
+  renderTimeline(year, timelineSearchQuery);
 }
+
+let timelineSearchTimer = null;
+document.addEventListener('DOMContentLoaded', function () {
+  const search = document.getElementById('timelineSearch');
+  if (!search) return;
+  search.addEventListener('input', function (e) {
+    clearTimeout(timelineSearchTimer);
+    const value = e.target.value;
+    timelineSearchTimer = setTimeout(function () {
+      renderTimeline(currentYearFilter, value);
+    }, 220);
+  });
+});
 
 // ============ 计数器 ============
 const startDate = new Date('2024-12-12T00:00:00');
@@ -1059,6 +1175,7 @@ async function bootEncryptedContent() {
     videoMap = content.videoMap || {};
     timelineData = content.timelineData || [];
     memoryData = content.memoryData || [];
+    updateSiteStats(content);
     const hq = document.getElementById('heroQuote');
     if (hq && content.heroQuote) hq.innerHTML = content.heroQuote;
     const lm = document.getElementById('lettersMount');
