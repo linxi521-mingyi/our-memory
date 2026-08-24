@@ -1,0 +1,438 @@
+/**
+ * Our Memory — 全站统一视觉主题
+ * 主页 / 登录 / 聊天查看页 / 弹窗 共用
+ */
+:root {
+  --rose: #FF6B9D;
+  --rose-deep: #E91E63;
+  --rose-light: #FFE4EC;
+  --lavender: #B57EDC;
+  --lavender-deep: #9C27B0;
+  --bg-grad: linear-gradient(135deg, #FFF0F5 0%, #F3E5F5 35%, #E8EAF6 70%, #FCE4EC 100%);
+  --surface: rgba(255, 255, 255, 0.78);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --ink: #4A3B52;
+  --ink-soft: #7A6B7A;
+  --muted: #B0A0B0;
+  --border: rgba(255, 107, 157, 0.15);
+  --shadow: 0 8px 32px rgba(233, 30, 99, 0.08);
+  --shadow-hover: 0 12px 48px rgba(233, 30, 99, 0.15);
+  --radius: 16px;
+  --radius-lg: 24px;
+  --font-serif: 'Georgia', 'Noto Serif SC', 'Songti SC', 'Microsoft YaHei', serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+/* ========== 聊天查看页（viewer.html） ========== */
+html.love-viewer-page,
+body.love-viewer-page {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-grad);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.love-viewer-bar {
+  position: sticky;
+  top: 0;
+  z-index: 999999;
+  padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+  background: rgba(255, 245, 247, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgba(233, 30, 99, 0.06);
+}
+
+.love-viewer-bar__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--rose-deep), var(--lavender));
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(233, 30, 99, 0.25);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.love-viewer-bar__back:active {
+  transform: scale(0.97);
+}
+
+.love-viewer-bar__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-serif);
+  letter-spacing: 0.02em;
+}
+
+#loveChatRoot {
+  min-height: calc(100vh - 56px);
+}
+
+/* ========== 轻量聊天渲染器（LoveChatViewer） ========== */
+.lcv-page {
+  min-height: 100vh;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.lcv-page--wechat {
+  background: linear-gradient(180deg, #f8f4f6 0%, #eef0f5 40%, #f5f0f8 100%);
+}
+
+.lcv-page--douyin {
+  background: var(--bg-grad);
+}
+
+.lcv-hdr {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 245, 247, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(233, 30, 99, 0.05);
+}
+
+.lcv-hdr__tag {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rose);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.lcv-hdr h1 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  font-family: var(--font-serif);
+  background: linear-gradient(135deg, var(--rose-deep), var(--lavender-deep));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lcv-hdr .info {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+  opacity: 0.85;
+}
+
+.lcv-search-wrap {
+  position: relative;
+}
+
+.lcv-search {
+  width: 100%;
+  padding: 11px 16px 11px 40px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: var(--font-sans);
+}
+
+.lcv-search:focus {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 4px rgba(255, 107, 157, 0.12);
+  background: #fff;
+}
+
+.lcv-search::placeholder {
+  color: var(--muted);
+}
+
+.lcv-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.lcv-stats {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+  letter-spacing: 0.04em;
+}
+
+#lcvMsgs {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 12px 12px 88px;
+}
+
+.lcv-date {
+  text-align: center;
+  margin: 20px 0 10px;
+}
+
+.lcv-date span {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink-soft);
+  font-size: 12px;
+  padding: 5px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* 微信气泡 */
+.lcv-page--wechat .lcv-msg {
+  max-width: 720px;
+  margin: 0 auto 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.lcv-page--wechat .lcv-msg.self { align-items: flex-end; }
+.lcv-page--wechat .lcv-msg.other { align-items: flex-start; }
+
+.lcv-page--wechat .lcv-time {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 3px;
+  padding: 0 6px;
+}
+
+.lcv-page--wechat .lcv-bubble {
+  max-width: 78%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.lcv-page--wechat .lcv-msg.self .lcv-bubble {
+  background: linear-gradient(135deg, #9ee86a, #95ec69);
+  color: #1a1a1a;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(149, 236, 105, 0.35);
+}
+
+.lcv-page--wechat .lcv-msg.other .lcv-bubble {
+  background: #fff;
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+/* 抖音气泡 */
+.lcv-page--douyin .lcv-msg {
+  display: flex;
+  margin-bottom: 14px;
+  gap: 10px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lcv-page--douyin .lcv-msg.me { flex-direction: row-reverse; }
+
+.lcv-page--douyin .lcv-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.lcv-page--douyin .lcv-msg.me .lcv-avatar {
+  background: linear-gradient(135deg, var(--rose-deep), #f06292);
+}
+
+.lcv-page--douyin .lcv-msg.her .lcv-avatar {
+  background: linear-gradient(135deg, #26c6da, #4dd0e1);
+}
+
+.lcv-page--douyin .lcv-bubble {
+  max-width: 68%;
+  padding: 10px 15px;
+  border-radius: 18px;
+  font-size: 14.5px;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.lcv-page--douyin .lcv-msg.me .lcv-bubble {
+  background: linear-gradient(135deg, var(--rose-deep), #f06292);
+  color: #fff;
+  border-top-right-radius: 6px;
+  box-shadow: 0 4px 14px rgba(233, 30, 99, 0.2);
+}
+
+.lcv-page--douyin .lcv-msg.her .lcv-bubble {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+  border-top-left-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+.lcv-page--douyin .lcv-bubble .lcv-time {
+  font-size: 10px;
+  opacity: 0.5;
+  margin-top: 5px;
+  display: block;
+}
+
+.lcv-more {
+  text-align: center;
+  padding: 20px 16px 32px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.lcv-more button {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 28px;
+  font-size: 14px;
+  color: var(--rose-deep);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.lcv-more button:active {
+  transform: scale(0.98);
+}
+
+/* 加载动画 */
+.lcv-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 245, 247, 0.96);
+  backdrop-filter: blur(8px);
+  color: var(--ink-soft);
+  font-family: var(--font-sans);
+}
+
+.lcv-boot__spin {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--rose-light);
+  border-top-color: var(--rose-deep);
+  border-radius: 50%;
+  animation: lcvSpin 0.85s linear infinite;
+  margin-bottom: 16px;
+}
+
+.lcv-boot__text {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.lcv-boot__pct {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+@keyframes lcvSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========== 旧版完整 HTML 聊天页覆盖 ========== */
+body.love-legacy-chat {
+  background: linear-gradient(180deg, #f8f4f6 0%, #eef0f5 100%) !important;
+  font-family: var(--font-sans) !important;
+}
+
+body.love-legacy-chat .header,
+body.love-legacy-chat .lcv-hdr {
+  background: rgba(255, 245, 247, 0.92) !important;
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border) !important;
+  padding: 14px 16px !important;
+}
+
+body.love-legacy-chat .header h1 {
+  font-family: var(--font-serif) !important;
+  background: linear-gradient(135deg, var(--rose-deep), var(--lavender-deep));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 17px !important;
+}
+
+body.love-legacy-chat .search-box input,
+body.love-legacy-chat .lcv-search {
+  border: 1.5px solid var(--border) !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+body.love-legacy-chat .search-box input:focus {
+  border-color: var(--rose) !important;
+  box-shadow: 0 0 0 4px rgba(255, 107, 157, 0.12) !important;
+}
+
+body.love-legacy-chat #bootOverlay,
+body.love-legacy-chat #lcvBoot {
+  background: rgba(255, 245, 247, 0.96) !important;
+  color: var(--ink-soft) !important;
+}
+
+body.love-legacy-chat .date-div span,
+body.love-legacy-chat .date-divider span {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: var(--ink-soft) !important;
+  border: 1px solid var(--border);
+  border-radius: 999px !important;
+}
+
+@media (max-width: 768px) {
+  .lcv-hdr { padding: 12px 14px 10px; }
+  .lcv-hdr h1 { font-size: 16px; }
+  #lcvMsgs { padding: 10px 10px 80px; }
+  .lcv-page--wechat .lcv-bubble { font-size: 15px; max-width: 82%; }
+  .lcv-page--douyin .lcv-bubble { max-width: 72%; }
+}

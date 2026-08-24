@@ -1,4 +1,4 @@
-/** Lightweight mobile chat renderer (compact JSON packs, lazy batches). */
+/** Lightweight mobile chat renderer — uses js/theme.css */
 (function (global) {
   var BATCH_WECHAT = 50;
   var BATCH_DOUYIN = 60;
@@ -11,12 +11,13 @@
       .replace(/"/g, '&quot;');
   }
 
-  function injectStyle(id, css) {
-    if (document.getElementById(id)) return;
-    var el = document.createElement('style');
-    el.id = id;
-    el.textContent = css;
-    document.head.appendChild(el);
+  function ensureTheme() {
+    if (document.getElementById('love-theme-css')) return;
+    var link = document.createElement('link');
+    link.id = 'love-theme-css';
+    link.rel = 'stylesheet';
+    link.href = 'js/theme.css';
+    document.head.appendChild(link);
   }
 
   function yieldUI() {
@@ -28,12 +29,14 @@
   }
 
   function mountBoot(root) {
-    root.innerHTML =
-      '<div id="lcvBoot" style="position:fixed;inset:0;z-index:99998;background:#f5f5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,-apple-system,sans-serif;color:#666;">' +
-      '<div style="width:44px;height:44px;border:3px solid #e0e0e0;border-top-color:#667eea;border-radius:50%;animation:lcvSpin .8s linear infinite;margin-bottom:16px;"></div>' +
-      '<div id="lcvBootText" style="font-size:15px;">正在加载聊天记录…</div>' +
-      '<div id="lcvBootPct" style="font-size:12px;color:#999;margin-top:8px;">0%</div></div>' +
-      '<style>@keyframes lcvSpin{to{transform:rotate(360deg)}}</style>';
+    root.insertAdjacentHTML(
+      'afterbegin',
+      '<div id="lcvBoot" class="lcv-boot">' +
+        '<div class="lcv-boot__spin"></div>' +
+        '<div id="lcvBootText" class="lcv-boot__text">正在加载聊天记录…</div>' +
+        '<div id="lcvBootPct" class="lcv-boot__pct">0%</div>' +
+      '</div>'
+    );
   }
 
   function setBoot(pct, text) {
@@ -48,45 +51,41 @@
     if (el) el.style.display = 'none';
   }
 
-  function renderWechat(root, pack, onProgress) {
-    injectStyle(
-      'lcv-wechat-css',
-      'body{background:#ededed;margin:0}' +
-        '.lcv-hdr{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);padding:12px 14px;border-bottom:1px solid #ddd}' +
-        '.lcv-hdr h1{font-size:16px;margin:0 0 4px;color:#333}' +
-        '.lcv-hdr .info{font-size:12px;color:#888;margin-bottom:8px}' +
-        '.lcv-search{width:100%;padding:9px 14px;border:1px solid #ddd;border-radius:18px;font-size:14px;outline:none;box-sizing:border-box}' +
-        '.lcv-stats{font-size:12px;color:#999;margin-top:6px}' +
-        '#lcvMsgs{max-width:700px;margin:0 auto;padding:10px 8px 80px}' +
-        '.date-div{text-align:center;margin:16px 0 8px}' +
-        '.date-div span{background:rgba(0,0,0,.08);color:#666;font-size:12px;padding:4px 12px;border-radius:10px}' +
-        '.msg{max-width:700px;margin:0 auto 8px;display:flex;flex-direction:column}' +
-        '.msg.self{align-items:flex-end}.msg.other{align-items:flex-start}' +
-        '.time{font-size:11px;color:#999;margin-bottom:2px;padding:0 4px}' +
-        '.bubble{max-width:78%;padding:10px 14px;border-radius:12px;font-size:15px;line-height:1.55;word-break:break-word}' +
-        '.msg.self .bubble{background:#95ec69;color:#000}.msg.other .bubble{background:#fff;color:#333;box-shadow:0 1px 2px rgba(0,0,0,.08)}' +
-        '.lcv-more{text-align:center;padding:16px;color:#888;font-size:13px}' +
-        '.lcv-more button{background:#fff;border:1px solid #ccc;border-radius:16px;padding:8px 24px;font-size:13px;color:#555}'
+  function headerHtml(pack, platform) {
+    var tag = platform === 'wechat' ? 'WECHAT · 微信' : 'DOUYIN · 抖音';
+    return (
+      '<div class="lcv-hdr">' +
+        '<span class="lcv-hdr__tag">' + tag + '</span>' +
+        '<h1>' + esc(pack.title || '聊天记录') + '</h1>' +
+        (pack.info ? '<div class="info">' + esc(pack.info) + '</div>' : '') +
+        '<div class="lcv-search-wrap">' +
+          '<span class="lcv-search-icon">🔍</span>' +
+          '<input class="lcv-search" id="lcvSearch" type="search" placeholder="搜索消息内容…" autocomplete="off">' +
+        '</div>' +
+        '<div class="lcv-stats" id="lcvStats">共 ' + (pack.m || []).length + ' 条</div>' +
+      '</div>'
     );
+  }
 
+  function bindSearch(msgs, statsEl, onReset) {
+    var searchTimer = null;
+    document.getElementById('lcvSearch').addEventListener('input', function (e) {
+      clearTimeout(searchTimer);
+      var q = (e.target.value || '').trim().toLowerCase();
+      searchTimer = setTimeout(function () {
+        onReset(q);
+      }, 260);
+    });
+  }
+
+  function renderWechat(root, pack, onProgress) {
+    root.className = 'lcv-page lcv-page--wechat';
     var msgs = pack.m || [];
     var loaded = 0;
     var lastDate = '';
     var searchResults = null;
-    var searchTimer = null;
 
-    root.innerHTML =
-      '<div class="lcv-hdr">' +
-      '<h1>' +
-      esc(pack.title || '微信聊天记录') +
-      '</h1>' +
-      (pack.info ? '<div class="info">' + esc(pack.info) + '</div>' : '') +
-      '<input class="lcv-search" id="lcvSearch" type="search" placeholder="搜索消息…" autocomplete="off">' +
-      '<div class="lcv-stats" id="lcvStats">共 ' +
-      msgs.length +
-      ' 条</div></div>' +
-      '<div id="lcvMsgs"></div>' +
-      '<div class="lcv-more" id="lcvMore"></div>';
+    root.innerHTML = headerHtml(pack, 'wechat') + '<div id="lcvMsgs"></div><div class="lcv-more" id="lcvMore"></div>';
 
     var box = document.getElementById('lcvMsgs');
     var more = document.getElementById('lcvMore');
@@ -100,7 +99,7 @@
       var list = source();
       var total = list.length;
       if (loaded >= total) {
-        more.innerHTML = total ? '<span>已加载全部 ' + total + ' 条</span>' : '<span>暂无消息</span>';
+        more.innerHTML = total ? '<span>已加载全部 ' + total + ' 条消息</span>' : '<span>暂无消息</span>';
         return;
       }
       var end = Math.min(loaded + BATCH_WECHAT, total);
@@ -113,16 +112,13 @@
         var bubble = row[3];
         if (date && date !== lastDate) {
           lastDate = date;
-          html += '<div class="date-div"><span>' + esc(date) + '</span></div>';
+          html += '<div class="lcv-date"><span>' + esc(date) + '</span></div>';
         }
         html +=
-          '<div class="msg ' +
-          (isMe ? 'self' : 'other') +
-          '"><div class="time">' +
-          esc(timeHtml) +
-          '</div><div class="bubble">' +
-          bubble +
-          '</div></div>';
+          '<div class="lcv-msg ' + (isMe ? 'self' : 'other') + '">' +
+            '<div class="lcv-time">' + esc(timeHtml) + '</div>' +
+            '<div class="lcv-bubble">' + bubble + '</div>' +
+          '</div>';
       }
       box.insertAdjacentHTML('beforeend', html);
       loaded = end;
@@ -132,35 +128,28 @@
       if (loaded >= Math.min(BATCH_WECHAT, total)) hideBoot();
       if (loaded < total) {
         more.innerHTML = '<button type="button" id="lcvLoadBtn">继续加载 (' + (total - loaded) + ')</button>';
-        document.getElementById('lcvLoadBtn').onclick = function () {
-          appendBatch();
-        };
+        document.getElementById('lcvLoadBtn').onclick = appendBatch;
       } else {
-        more.innerHTML = '<span>已加载全部 ' + total + ' 条</span>';
+        more.innerHTML = '<span>已加载全部 ' + total + ' 条消息</span>';
       }
     }
 
-    document.getElementById('lcvSearch').addEventListener('input', function (e) {
-      clearTimeout(searchTimer);
-      var q = (e.target.value || '').trim().toLowerCase();
-      searchTimer = setTimeout(function () {
-        loaded = 0;
-        lastDate = '';
-        box.innerHTML = '';
-        if (!q) {
-          searchResults = null;
-          stats.textContent = '共 ' + msgs.length + ' 条';
-          appendBatch();
-          return;
-        }
-        searchResults = [];
-        for (var i = 0; i < msgs.length; i++) {
-          var s = msgs[i][4] || '';
-          if (s.indexOf(q) >= 0) searchResults.push(msgs[i]);
-        }
-        stats.textContent = '找到 ' + searchResults.length + ' 条';
+    bindSearch(msgs, stats, function (q) {
+      loaded = 0;
+      lastDate = '';
+      box.innerHTML = '';
+      if (!q) {
+        searchResults = null;
+        stats.textContent = '共 ' + msgs.length + ' 条';
         appendBatch();
-      }, 280);
+        return;
+      }
+      searchResults = [];
+      for (var i = 0; i < msgs.length; i++) {
+        if ((msgs[i][4] || '').indexOf(q) >= 0) searchResults.push(msgs[i]);
+      }
+      stats.textContent = '找到 ' + searchResults.length + ' 条';
+      appendBatch();
     });
 
     mountBoot(root);
@@ -169,46 +158,13 @@
   }
 
   function renderDouyin(root, pack, onProgress) {
-    injectStyle(
-      'lcv-douyin-css',
-      'body{margin:0;background:linear-gradient(180deg,#fce4ec 0%,#fff5f5 30%,#f3e5f5 60%,#e8eaf6 100%);min-height:100vh}' +
-        '.lcv-hdr{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.88);backdrop-filter:blur(12px);padding:12px 14px;border-bottom:1px solid rgba(255,182,193,.3)}' +
-        '.lcv-hdr h1{font-size:16px;margin:0 0 4px;background:linear-gradient(135deg,#e91e63,#9c27b0);-webkit-background-clip:text;-webkit-text-fill-color:transparent}' +
-        '.lcv-hdr .info{font-size:12px;color:#ad1457;opacity:.7;margin-bottom:8px}' +
-        '.lcv-search{width:100%;padding:9px 14px;border:1.5px solid #f8bbd0;border-radius:22px;font-size:14px;outline:none;box-sizing:border-box;background:rgba(255,255,255,.6)}' +
-        '.lcv-stats{font-size:12px;color:#ad1457;opacity:.6;margin-top:6px}' +
-        '#lcvMsgs{max-width:780px;margin:0 auto;padding:16px 10px 80px}' +
-        '.date-div{text-align:center;margin:24px 0 12px}' +
-        '.date-div span{background:rgba(255,255,255,.7);color:#ad1457;font-size:12px;padding:5px 14px;border-radius:14px}' +
-        '.msg{display:flex;margin-bottom:12px;gap:10px}.msg.me{flex-direction:row-reverse}' +
-        '.avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}' +
-        '.msg.me .avatar{background:linear-gradient(135deg,#e91e63,#f06292)}.msg.her .avatar{background:linear-gradient(135deg,#26c6da,#4dd0e1)}' +
-        '.bubble{max-width:68%;padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.65;word-break:break-word}' +
-        '.msg.me .bubble{background:linear-gradient(135deg,#e91e63,#f06292);color:#fff;border-top-right-radius:6px}' +
-        '.msg.her .bubble{background:rgba(255,255,255,.92);color:#333;border-top-left-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.05)}' +
-        '.bubble .time{font-size:10px;opacity:.5;margin-top:4px;display:block}' +
-        '.lcv-more{text-align:center;padding:16px;color:#ad1457;font-size:13px;opacity:.7}' +
-        '.lcv-more button{background:rgba(255,255,255,.85);border:1.5px solid #f8bbd0;border-radius:22px;padding:8px 24px;font-size:13px;color:#ad1457}'
-    );
-
+    root.className = 'lcv-page lcv-page--douyin';
     var msgs = pack.m || [];
     var loaded = 0;
     var lastDate = '';
     var searchResults = null;
-    var searchTimer = null;
 
-    root.innerHTML =
-      '<div class="lcv-hdr">' +
-      '<h1>' +
-      esc(pack.title || '抖音聊天记录') +
-      '</h1>' +
-      (pack.info ? '<div class="info">' + esc(pack.info) + '</div>' : '') +
-      '<input class="lcv-search" id="lcvSearch" type="search" placeholder="搜索消息…" autocomplete="off">' +
-      '<div class="lcv-stats" id="lcvStats">共 ' +
-      msgs.length +
-      ' 条</div></div>' +
-      '<div id="lcvMsgs"></div>' +
-      '<div class="lcv-more" id="lcvMore"></div>';
+    root.innerHTML = headerHtml(pack, 'douyin') + '<div id="lcvMsgs"></div><div class="lcv-more" id="lcvMore"></div>';
 
     var box = document.getElementById('lcvMsgs');
     var more = document.getElementById('lcvMore');
@@ -222,7 +178,7 @@
       var list = source();
       var total = list.length;
       if (loaded >= total) {
-        more.innerHTML = total ? '<span>已加载全部 ' + total + ' 条</span>' : '<span>暂无消息</span>';
+        more.innerHTML = total ? '<span>已加载全部 ' + total + ' 条消息</span>' : '<span>暂无消息</span>';
         return;
       }
       var end = Math.min(loaded + BATCH_DOUYIN, total);
@@ -235,18 +191,13 @@
         var content = row[3];
         if (date && date !== lastDate) {
           lastDate = date;
-          html += '<div class="date-div"><span>' + esc(date) + '</span></div>';
+          html += '<div class="lcv-date"><span>' + esc(date) + '</span></div>';
         }
         html +=
-          '<div class="msg ' +
-          (isMe ? 'me' : 'her') +
-          '"><div class="avatar">' +
-          (isMe ? '我' : '她') +
-          '</div><div class="bubble">' +
-          esc(content) +
-          '<span class="time">' +
-          esc(time) +
-          '</span></div></div>';
+          '<div class="lcv-msg ' + (isMe ? 'me' : 'her') + '">' +
+            '<div class="lcv-avatar">' + (isMe ? '我' : '她') + '</div>' +
+            '<div class="lcv-bubble">' + esc(content) + '<span class="lcv-time">' + esc(time) + '</span></div>' +
+          '</div>';
       }
       box.insertAdjacentHTML('beforeend', html);
       loaded = end;
@@ -256,34 +207,28 @@
       if (loaded >= Math.min(BATCH_DOUYIN, total)) hideBoot();
       if (loaded < total) {
         more.innerHTML = '<button type="button" id="lcvLoadBtn">继续加载 (' + (total - loaded) + ')</button>';
-        document.getElementById('lcvLoadBtn').onclick = function () {
-          appendBatch();
-        };
+        document.getElementById('lcvLoadBtn').onclick = appendBatch;
       } else {
-        more.innerHTML = '<span>已加载全部 ' + total + ' 条</span>';
+        more.innerHTML = '<span>已加载全部 ' + total + ' 条消息</span>';
       }
     }
 
-    document.getElementById('lcvSearch').addEventListener('input', function (e) {
-      clearTimeout(searchTimer);
-      var q = (e.target.value || '').trim().toLowerCase();
-      searchTimer = setTimeout(function () {
-        loaded = 0;
-        lastDate = '';
-        box.innerHTML = '';
-        if (!q) {
-          searchResults = null;
-          stats.textContent = '共 ' + msgs.length + ' 条';
-          appendBatch();
-          return;
-        }
-        searchResults = [];
-        for (var i = 0; i < msgs.length; i++) {
-          if ((msgs[i][3] || '').toLowerCase().indexOf(q) >= 0) searchResults.push(msgs[i]);
-        }
-        stats.textContent = '找到 ' + searchResults.length + ' 条';
+    bindSearch(msgs, stats, function (q) {
+      loaded = 0;
+      lastDate = '';
+      box.innerHTML = '';
+      if (!q) {
+        searchResults = null;
+        stats.textContent = '共 ' + msgs.length + ' 条';
         appendBatch();
-      }, 280);
+        return;
+      }
+      searchResults = [];
+      for (var i = 0; i < msgs.length; i++) {
+        if ((msgs[i][3] || '').toLowerCase().indexOf(q) >= 0) searchResults.push(msgs[i]);
+      }
+      stats.textContent = '找到 ' + searchResults.length + ' 条';
+      appendBatch();
     });
 
     mountBoot(root);
@@ -297,6 +242,9 @@
 
   async function render(root, pack, onProgress) {
     if (!root || !isChatPack(pack)) throw new Error('无效的聊天数据');
+    ensureTheme();
+    document.documentElement.classList.add('love-viewer-page');
+    document.body.classList.add('love-viewer-page');
     document.title = pack.title || '聊天记录';
     await yieldUI();
     if (pack.t === 'wechat') renderWechat(root, pack, onProgress);

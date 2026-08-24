@@ -585,16 +585,30 @@
 
   function viewerBackBar(title) {
     return (
-      '<div id="loveViewerBack" style="position:sticky;top:0;z-index:999999;' +
-      'padding:max(10px,env(safe-area-inset-top)) 14px 10px;background:rgba(255,245,247,.96);' +
-      'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(233,30,99,.15);' +
-      'display:flex;align-items:center;gap:10px;font-family:-apple-system,BlinkMacSystemFont,\'PingFang SC\',sans-serif;">' +
-      '<a href="index.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;' +
-      'border-radius:20px;background:linear-gradient(135deg,#E91E63,#B57EDC);color:#fff;text-decoration:none;' +
-      'font-size:14px;font-weight:600;">← 返回</a>' +
-      '<span style="font-size:14px;color:#7A6B7A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
-      (title.replace(/</g, '&lt;')) + '</span></div>'
+      '<link rel="stylesheet" href="js/theme.css">' +
+      '<div id="loveViewerBack" class="love-viewer-bar">' +
+      '<a href="index.html" class="love-viewer-bar__back">← 返回</a>' +
+      '<span class="love-viewer-bar__title">' + (title.replace(/</g, '&lt;')) + '</span></div>'
     );
+  }
+
+  function prepareLegacyChatHtml(html, title) {
+    var out = html;
+    if (out.indexOf('theme.css') < 0) {
+      out = out.replace(/<\/head>/i, '<link rel="stylesheet" href="js/theme.css"></head>');
+    }
+    if (!/class="[^"]*love-legacy-chat/.test(out)) {
+      out = out.replace(/<body([^>]*)>/i, function (_m, attrs) {
+        if (/class="/i.test(attrs)) {
+          return '<body' + attrs.replace(/class="/i, 'class="love-viewer-page love-legacy-chat ') + '>';
+        }
+        return '<body class="love-viewer-page love-legacy-chat"' + attrs + '>';
+      });
+    }
+    out = out.replace(/<body[^>]*>/i, function (match) {
+      return match + viewerBackBar(title);
+    });
+    return out;
   }
 
   async function renderViewerPage(vid) {
@@ -634,6 +648,8 @@
     if (!cached) throw new Error('内容为空');
 
     if (global.LoveChatViewer && LoveChatViewer.isChatPack(cached)) {
+      document.documentElement.classList.add('love-viewer-page');
+      document.body.classList.add('love-viewer-page');
       document.body.innerHTML = viewerBackBar(title) + '<div id="loveChatRoot"></div>';
       LoveLoader.set(96, '渲染', '正在显示聊天…');
       await yieldToUI();
@@ -656,7 +672,7 @@
     LoveLoader.hide(100);
     await yieldToUI();
     document.open('text/html', 'replace');
-    document.write(viewerBackBar(title) + html);
+    document.write(prepareLegacyChatHtml(html, title));
     document.close();
   }
 
