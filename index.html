@@ -583,8 +583,8 @@ section { position: relative; z-index: 1; }
   <div class="container">
     <div class="stats-grid">
       <div class="stat-card fade-in"><div class="stat-num" id="stat-days">0</div><div class="stat-label">在一起的天数</div></div>
-      <div class="stat-card fade-in"><div class="stat-num" id="stat-events">—</div><div class="stat-label">时间记忆事件</div></div>
-      <div class="stat-card fade-in"><div class="stat-num" id="stat-photos">—</div><div class="stat-label">珍藏的照片</div></div>
+      <div class="stat-card fade-in"><div class="stat-num" id="stat-events">99+</div><div class="stat-label">时间记忆事件</div></div>
+      <div class="stat-card fade-in"><div class="stat-num" id="stat-photos">99+</div><div class="stat-label">珍藏的照片</div></div>
       <div class="stat-card fade-in"><div class="stat-num" id="stat-videos">—</div><div class="stat-label">珍贵视频回忆</div></div>
       <div class="stat-card fade-in"><div class="stat-num">82,010</div><div class="stat-label">双平台聊天消息</div></div>
       <div class="stat-card fade-in"><div class="stat-num">∞</div><div class="stat-label">永远的记忆</div></div>
@@ -754,19 +754,17 @@ function highlightText(text, query) {
 }
 
 function updateSiteStats(content) {
-  const stats = content.siteStats || {};
-  const events = stats.timelineEvents || timelineData.length;
-  const photos = stats.photos || Object.values(imageMap).reduce(function (n, arr) { return n + arr.length; }, 0);
-  const videos = stats.videos || Object.values(videoMap).reduce(function (n, arr) { return n + arr.length; }, 0);
   const elEvents = document.getElementById('stat-events');
   const elPhotos = document.getElementById('stat-photos');
   const elVideos = document.getElementById('stat-videos');
   const footer = document.getElementById('footerStats');
-  if (elEvents) elEvents.textContent = events;
-  if (elPhotos) elPhotos.textContent = photos;
+  const stats = content.siteStats || {};
+  const videos = stats.videos || Object.values(videoMap).reduce(function (n, arr) { return n + arr.length; }, 0);
+  if (elEvents) elEvents.textContent = '99+';
+  if (elPhotos) elPhotos.textContent = '99+';
   if (elVideos) elVideos.textContent = videos;
   if (footer) {
-    footer.textContent = '本网站基于82,010条真实聊天记录、' + events + '件时间记忆、' + photos + '张照片构建';
+    footer.textContent = '本网站基于82,010条真实聊天记录、99+件时间记忆、99+张照片构建';
   }
 }
 
