@@ -6,6 +6,7 @@
   const ENC_VERSION_KEY = 'love_enc_version';
   const LOGIN_FLAG = 'love_logged_in';
   const CONTENT_CACHE_KEY = 'love_content_cache_v1';
+  const CONTENT_BUILT_KEY = 'love_content_built_at';
 
   const metaCache = { value: null, promise: null };
   const decryptCache = new Map();
@@ -238,6 +239,8 @@
     const storedVer = sessionStorage.getItem(ENC_VERSION_KEY);
     const ver = String(meta.encVersion || meta.salt || '');
     const hasKey = !!sessionStorage.getItem(KEY_STORAGE);
+    const built = String(meta.builtAt || '');
+    const storedBuilt = sessionStorage.getItem(CONTENT_BUILT_KEY);
 
     if (hasKey && !storedSalt) {
       clearSession();
@@ -250,6 +253,14 @@
     if (storedVer && ver && storedVer !== ver) {
       clearSession();
       throw new Error('站点已更新，请重新登录');
+    }
+    // content.enc 更新但 salt 不变时：清掉内容缓存，避免仍显示旧信件/时间线
+    if (built && storedBuilt && built !== storedBuilt) {
+      sessionStorage.removeItem(CONTENT_CACHE_KEY);
+      sessionStorage.setItem(CONTENT_BUILT_KEY, built);
+      decryptCache.delete('enc/content.enc');
+    } else if (built && !storedBuilt) {
+      sessionStorage.setItem(CONTENT_BUILT_KEY, built);
     }
     return meta;
   }
@@ -291,6 +302,7 @@
     if (meta) {
       sessionStorage.setItem(META_SALT_KEY, meta.salt || '');
       sessionStorage.setItem(ENC_VERSION_KEY, String(meta.encVersion || meta.salt || ''));
+      if (meta.builtAt) sessionStorage.setItem(CONTENT_BUILT_KEY, String(meta.builtAt));
     }
     localStorage.removeItem(LOGIN_FLAG);
   }
@@ -301,6 +313,7 @@
     sessionStorage.removeItem(ENC_VERSION_KEY);
     sessionStorage.removeItem(LOGIN_FLAG);
     sessionStorage.removeItem(CONTENT_CACHE_KEY);
+    sessionStorage.removeItem(CONTENT_BUILT_KEY);
     sessionStorage.removeItem('love_viewer_title');
     localStorage.removeItem(LOGIN_FLAG);
     decryptCache.clear();
@@ -427,13 +440,15 @@
   }
 
   function shouldUseViewerFor(legacyPath) {
+    // 聊天记录改用分页渲染的 viewer，避免桌面端一次塞入 5–6MB HTML 导致卡死/点不开
+    if (CHAT_PATHS.indexOf(legacyPath) >= 0) return true;
     if (isWeChatBrowser()) return true;
-    if (isMobileDevice() && CHAT_PATHS.indexOf(legacyPath) >= 0) return true;
     return false;
   }
 
   function useMobilePack(legacyPath) {
-    return (isMobileDevice() || isWeChatBrowser()) && !!MOBILE_ENC_MAP[legacyPath];
+    // 有移动聊天包时优先使用（桌面端同样受益，体积更小、可渐进渲染）
+    return !!MOBILE_ENC_MAP[legacyPath];
   }
 
   function getEncPath(legacyPath) {
@@ -579,7 +594,17 @@
     if (!info) return null;
     report(onProgress, 100, '跳转', '正在打开页面…');
     await yieldToUI();
-    location.href = 'viewer.html?v=' + encodeURIComponent(info.vid);
+    var url = 'viewer.html?v=' + encodeURIComponent(info.vid);
+    // 桌面端新标签打开，保留首页；移动端/微信内直接跳转
+    if (!isMobileDevice() && !isWeChatBrowser()) {
+      var w = window.open(url, '_blank');
+      if (!w) {
+        report(onProgress, 100, '完成', '弹窗被拦截，当前页打开');
+        location.href = url;
+      }
+      return info;
+    }
+    location.href = url;
     return info;
   }
 
